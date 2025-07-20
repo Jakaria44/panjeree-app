@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "panjeree-edu",
-    "slug": "panjeree-edu",
+    "slug": "panjeree",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -37,6 +37,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "cb2d0254-d7b3-4fb4-a3f9-bd711cef534b"
+      }
+    },
+    "owner": "extreme-devs"
   }
 }
