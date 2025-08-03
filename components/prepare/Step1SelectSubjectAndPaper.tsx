@@ -1,39 +1,31 @@
-import Button from '@/components/Button';
 import { FeatureCard } from '@/components/shared/FeatureCard';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { subjects } from '@/store/exam';
-import { papers, practiceConfigAtom } from '@/store/prepare';
+import { Paper, Subject, subjects } from '@/store/exam';
+import { practiceConfigAtom } from '@/store/prepare';
 import { useAtom } from 'jotai';
 import React from 'react';
-import { FlatList, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, ScrollView, StyleSheet, View } from 'react-native';
 
 export function Step1SelectSubjectAndPaper() {
   const [config, setConfig] = useAtom(practiceConfigAtom);
 
-  const handleSubjectSelect = (subject: { id: string; name: string; icon?: string }) => {
+  const handleSubjectSelect = (subject: Subject) => {
     setConfig((prev) => ({ ...prev, subject, paper: null }));
   };
 
-  const handlePaperSelect = (paper: { id: string; name: string }) => {
-    setConfig((prev) => ({ ...prev, paper }));
+  const handlePaperSelect = (paper: Paper) => {
+    setConfig((prev) => ({ ...prev, paper, step: 2 }));
   };
 
-  const handleContinue = () => {
-    setConfig((prev) => ({ ...prev, step: 2 }));
-  };
-
-  const renderSubject = ({ item }: { item: { id: string; name: string; icon?: string } }) => {
-    const iconSource = item.icon 
+  const renderSubject = ({ item }: { item: Subject }) => {
+    // Handle ReactNode icon or string icon
+    const iconSource = typeof item.icon === 'string' && item.icon
       ? { uri: item.icon }
       : require('@/assets/images/icon.png');
     
     return (
-      <TouchableOpacity
-        style={styles.subjectItem}
-        onPress={() => handleSubjectSelect(item)}
-        activeOpacity={0.7}
-      >
+      <View style={styles.subjectItem}>
         <FeatureCard
           title={item.name}
           icon={
@@ -43,20 +35,18 @@ export function Step1SelectSubjectAndPaper() {
             />
           }
           style={config.subject?.id === item.id ? styles.selectedCard : {}}
+          onPress={() => handleSubjectSelect(item)}
+          activeOpacity={0.7}
         />
-      </TouchableOpacity>
+      </View>
     );
   };
 
-  const renderPaper = ({ item }: { item: { id: string; name: string } }) => {
+  const renderPaper = ({ item }: { item: Paper }) => {
     return (
-      <TouchableOpacity
-        style={styles.paperItem}
-        onPress={() => handlePaperSelect(item)}
-        activeOpacity={0.7}
-      >
+      <View style={styles.paperItem}>
         <FeatureCard
-          title={item.name}
+          title={`${config.subject?.name || ''} ${item.name}`}
           icon={
             <Image
               source={require('@/assets/images/icon.png')}
@@ -64,49 +54,45 @@ export function Step1SelectSubjectAndPaper() {
             />
           }
           style={config.paper?.id === item.id ? styles.selectedCard : {}}
+          onPress={() => handlePaperSelect(item)}
+          activeOpacity={0.7}
         />
-      </TouchableOpacity>
+      </View>
     );
   };
 
-  const canContinue = config.subject && config.paper;
-  const subjectPapers = config.subject?.id ? papers[config.subject.id] || [] : [];
+  // Use subject's papers directly instead of papers object that was removed
+  const subjectPapers = config.subject?.papers || [];
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.section}>
-        <ThemedText style={styles.sectionTitle}>কোন বিষয়ের অনুশীলন করবে?</ThemedText>
-        <FlatList
-          data={subjects}
-          renderItem={renderSubject}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          contentContainerStyle={styles.subjectGrid}
-        />
-      </View>
-
-      {config.subject && (
+      <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>কোন পেপার অনুশীলন করবে?</ThemedText>
+          <ThemedText style={styles.sectionTitle}>কি বিষয়ে প্রস্তুতি নিতে চাও?</ThemedText>
           <FlatList
-            data={subjectPapers}
-            renderItem={renderPaper}
+            data={subjects}
+            renderItem={renderSubject}
             keyExtractor={(item) => item.id}
             numColumns={2}
-            contentContainerStyle={styles.paperGrid}
+            contentContainerStyle={styles.subjectGrid}
+            scrollEnabled={false}
           />
         </View>
-      )}
 
-      <View style={styles.buttonContainer}>
-        <Button
-          onPress={handleContinue}
-          disabled={!canContinue}
-          style={!canContinue ? { opacity: 0.5 } : {}}
-        >
-          পরবর্তী ধাপে যান
-        </Button>
-      </View>
+        {config.subject && subjectPapers.length > 0 && (
+          <View style={styles.section}>
+            <ThemedText style={styles.sectionTitle}>কোন পত্র প্রস্তুতি নিতে চাও?</ThemedText>
+            <FlatList
+              data={subjectPapers}
+              renderItem={renderPaper}
+              keyExtractor={(item) => item.id}
+              numColumns={1}
+              contentContainerStyle={styles.paperGrid}
+              scrollEnabled={false}
+            />
+          </View>
+        )}
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -135,7 +121,6 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   paperItem: {
-    width: '50%',
     padding: 6,
   },
   subjectIcon: {
@@ -151,8 +136,5 @@ const styles = StyleSheet.create({
   selectedCard: {
     borderColor: '#9333EA',
     backgroundColor: '#FAF5FF',
-  },
-  buttonContainer: {
-    marginTop: 8,
   },
 }); 

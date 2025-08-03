@@ -1,75 +1,80 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { FeatureCard } from '@/components/shared/FeatureCard';
+import { PageHeader } from '@/components/shared/PageHeader';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ThemedView style={styles.container}>
+        <ScrollView contentContainerStyle={{ paddingTop: insets.top > 0 ? 0 : 16 }}>
+          <PageHeader 
+            title="পাঞ্জেরী শিক্ষা"
+            description="পাঞ্জেরী শিক্ষা অ্যাপে স্বাগতম। আপনার পড়াশোনার সহায়ক সমাধান।" 
+          />
+          
+          <View style={styles.featuresContainer}>
+            <ThemedText style={styles.sectionTitle}>কী কী করতে পারবেন</ThemedText>
+            
+            <View style={styles.cardsContainer}>
+              <FeatureCard
+                title="পরীক্ষা দিন"
+                description="বিভিন্ন বিষয়ের মক টেস্ট দিয়ে নিজেকে যাচাই করুন"
+                icon={<Ionicons name="document-text" size={24} color="#6B7280" />}
+                style={styles.card}
+                onPress={() => router.navigate('/(tabs)/exam')}
+              />
+              
+              <FeatureCard
+                title="প্রশ্ন ব্যাংক"
+                description="বোর্ড এবং স্কুল পরীক্ষার প্রশ্নপত্র দেখুন"
+                icon={<Ionicons name="library" size={24} color="#6B7280" />}
+                style={styles.card}
+                onPress={() => router.navigate('/(tabs)/question-bank')}
+              />
+              
+              <FeatureCard
+                title="অনুশীলন করুন"
+                description="নিয়মিত অনুশীলন করে নিজেকে প্রস্তুত রাখুন"
+                icon={<Ionicons name="school" size={24} color="#6B7280" />}
+                style={styles.card}
+                onPress={() => router.navigate('/(tabs)/prepare')}
+              />
+            </View>
+          </View>
+        </ScrollView>
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  safeArea: {
+    flex: 1,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  container: {
+    flex: 1,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  featuresContainer: {
+    padding: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  cardsContainer: {
+    gap: 12,
+  },
+  card: {
+    marginBottom: 12,
   },
 });

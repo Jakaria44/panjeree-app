@@ -11,7 +11,15 @@ type StepIndicatorProps = {
 
 export function StepIndicator({ onBack }: StepIndicatorProps) {
   const { step, totalSteps, subject } = useAtomValue(examConfigAtom);
-  const currentDisplayStep = step - 1;
+  
+  // Step titles for each step
+  const stepTitles = [
+    "বিষয় নির্বাচন",
+    "অধ্যায় নির্বাচন",
+    "পর্যালোচনা",
+    "মান নির্বাচন",
+    "নিশ্চিত করুন"
+  ];
 
   return (
     <View style={styles.container}>
@@ -23,15 +31,31 @@ export function StepIndicator({ onBack }: StepIndicatorProps) {
         >
           <Ionicons name="arrow-back" size={20} color="#000" />
         </TouchableOpacity>
+        <View>
         <ThemedText style={styles.title}>
           পরীক্ষা দাও
-          {subject && <ThemedText style={styles.subtitleArrow}> › </ThemedText>}
+          </ThemedText>
+          <View style={styles.stepInfo}>
+            <ThemedText style={styles.stepText}>
+              {step <= 5 ? stepTitles[step-1] : ""}
+            </ThemedText>
+            {subject && <ThemedText style={styles.subtitleArrow}> • </ThemedText>}
           {subject && <ThemedText style={styles.subtitle}>{subject.name}</ThemedText>}
-        </ThemedText>
+          </View>
+        </View>
       </View>
-      <ThemedText style={styles.stepCounter}>
-        {currentDisplayStep}/{totalSteps} ধাপ
-      </ThemedText>
+      <View style={styles.stepsContainer}>
+        {Array.from({length: 5}).map((_, index) => (
+          <View 
+            key={index} 
+            style={[
+              styles.stepDot, 
+              index + 1 === step ? styles.activeStepDot : 
+              index + 1 < step ? styles.completedStepDot : {}
+            ]}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -54,22 +78,46 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 8,
   },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
   },
+  stepInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stepText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
   subtitleArrow: {
-    fontSize: 18,
+    fontSize: 14,
     color: '#9CA3AF',
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 14,
     color: '#9CA3AF',
   },
-  stepCounter: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
+  stepsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E5E7EB',
+  },
+  activeStepDot: {
+    backgroundColor: '#9333EA',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  completedStepDot: {
+    backgroundColor: '#10B981',
   },
 }); 

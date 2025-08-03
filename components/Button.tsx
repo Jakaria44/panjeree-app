@@ -28,6 +28,9 @@ export default function Button({
   const destructiveFgColor = useThemeColor({}, 'destructiveForeground');
   const borderColor = useThemeColor({}, 'border');
   const textColor = useThemeColor({}, 'text');
+  
+  // Use the design purple color for primary buttons
+  const purpleColor = '#9333EA';
 
   const getButtonStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
@@ -46,7 +49,7 @@ export default function Button({
       case 'primary':
         return {
           ...baseStyle,
-          backgroundColor: primaryColor,
+          backgroundColor: purpleColor,
         };
       case 'destructive':
         return {
@@ -87,7 +90,7 @@ export default function Button({
       case 'primary':
         return {
           ...baseTextStyle,
-          color: primaryFgColor,
+          color: '#FFFFFF', // White text for purple background
         };
       case 'destructive':
         return {
@@ -103,7 +106,7 @@ export default function Button({
       case 'link':
         return {
           ...baseTextStyle,
-          color: primaryColor,
+          color: purpleColor,
           textDecorationLine: 'underline',
         };
       default:

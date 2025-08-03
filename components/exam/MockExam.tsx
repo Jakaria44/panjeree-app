@@ -2,35 +2,31 @@ import Button from '@/components/Button';
 import { QuestionDisplay } from '@/components/shared/QuestionDisplay';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { mockQuestions } from '@/store/exam';
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { TimerProgress } from './TimerProgress';
 
 type Question = {
   id: string;
   text: string;
-  options: {
-    id: string;
-    text: string;
-  }[];
+  options: string[];
   correctAnswer: string;
 };
 
 type MockExamProps = {
-  questions: Question[];
   totalTime: number; // In seconds
   onComplete: (answers: Record<string, string>) => void;
 };
 
-export function MockExam({ questions, totalTime, onComplete }: MockExamProps) {
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+export function MockExam({ totalTime, onComplete }: MockExamProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [timeUp, setTimeUp] = useState(false);
   const [examCompleted, setExamCompleted] = useState(false);
 
-  const currentQuestion = questions[currentQuestionIndex];
+  // Use questions from the store
+  const questions = mockQuestions;
   const totalQuestions = questions.length;
-  const isLastQuestion = currentQuestionIndex === totalQuestions - 1;
 
   useEffect(() => {
     if (timeUp && !examCompleted) {
@@ -43,20 +39,6 @@ export function MockExam({ questions, totalTime, onComplete }: MockExamProps) {
       ...prev,
       [questionId]: optionId,
     }));
-  };
-
-  const handleNext = () => {
-    if (isLastQuestion) {
-      confirmSubmit();
-    } else {
-      setCurrentQuestionIndex((prev) => prev + 1);
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex((prev) => prev - 1);
-    }
   };
 
   const confirmSubmit = () => {
@@ -87,20 +69,30 @@ export function MockExam({ questions, totalTime, onComplete }: MockExamProps) {
     ]);
   };
 
-  const renderItem = ({ item, index }: { item: Question; index: number }) => {
-    const isActive = index === currentQuestionIndex;
-    if (!isActive) return null;
+  const renderQuestion = (question: Question, index: number) => {
+    // Convert options to the format expected by QuestionDisplay
+    const options = question.options.map((option, optionIndex) => ({
+      id: String.fromCharCode(97 + optionIndex), // a, b, c, d
+      text: option,
+    }));
 
     return (
-      <QuestionDisplay
-        questionNumber={index + 1}
-        questionText={item.text}
-        options={item.options}
-        userAnswer={answers[item.id]}
-        onSelectOption={(optionId) => handleAnswer(item.id, optionId)}
-      />
+      <View key={question.id} style={styles.questionItem}>
+        <QuestionDisplay
+          questionNumber={index + 1}
+          questionText={question.text}
+          options={options}
+          userAnswer={answers[question.id]}
+          onSelectOption={(optionId) => {
+            const optionText = question.options[optionId.charCodeAt(0) - 97];
+            handleAnswer(question.id, optionId);
+          }}
+        />
+      </View>
     );
   };
+
+  const answeredCount = Object.keys(answers).length;
 
   return (
     <ThemedView style={styles.container}>
@@ -108,18 +100,18 @@ export function MockExam({ questions, totalTime, onComplete }: MockExamProps) {
         <TimerProgress totalSeconds={totalTime} onTimeUp={handleTimeUp} isPaused={examCompleted} />
         <View style={styles.progressInfo}>
           <ThemedText style={styles.questionCounter}>
-            {currentQuestionIndex + 1}/{totalQuestions}
+            উত্তর দেওয়া হয়েছে: {answeredCount}/{totalQuestions}
           </ThemedText>
         </View>
       </View>
 
-      <FlatList
-        data={questions}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        style={styles.questionsList}
-      />
+      <ScrollView 
+        style={styles.questionContainer}
+        showsVerticalScrollIndicator={true}
+        contentContainerStyle={styles.questionContent}
+      >
+        {questions.map((question, index) => renderQuestion(question, index))}
+      </ScrollView>
 
       <View style={styles.bottomContainer}>
         <View style={styles.progressDots}>
@@ -128,7 +120,6 @@ export function MockExam({ questions, totalTime, onComplete }: MockExamProps) {
               key={index}
               style={[
                 styles.dot,
-                index === currentQuestionIndex && styles.activeDot,
                 answers[questions[index].id] && styles.answeredDot,
               ]}
             />
@@ -137,19 +128,9 @@ export function MockExam({ questions, totalTime, onComplete }: MockExamProps) {
         
         <View style={styles.buttonContainer}>
           <Button
-            onPress={handlePrevious}
-            disabled={currentQuestionIndex === 0}
-            variant="outline"
-            style={currentQuestionIndex === 0 ? {...styles.navButton, ...styles.disabledButton} : styles.navButton}
+            onPress={confirmSubmit}
           >
-            পূর্ববর্তী
-          </Button>
-
-          <Button
-            onPress={handleNext}
-            style={{...styles.navButton, ...styles.nextButton}}
-          >
-            {isLastQuestion ? 'সমাপ্ত করুন' : 'পরবর্তী'}
+            পরীক্ষা সমাপ্ত করুন
           </Button>
         </View>
       </View>
@@ -163,7 +144,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   progressInfo: {
     flexDirection: 'row',
@@ -174,8 +155,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  questionsList: {
+  questionContainer: {
     flex: 1,
+  },
+  questionContent: {
+    paddingBottom: 16,
+  },
+  questionItem: {
+    marginBottom: 24,
   },
   bottomContainer: {
     marginTop: 16,
@@ -193,27 +180,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#E5E7EB',
   },
-  activeDot: {
-    backgroundColor: '#9333EA',
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
   answeredDot: {
     backgroundColor: '#10B981',
   },
   buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  navButton: {
-    flex: 1,
-  },
-  nextButton: {
-    backgroundColor: '#9333EA',
-  },
-  disabledButton: {
-    opacity: 0.5,
+    marginTop: 8,
   },
 }); 

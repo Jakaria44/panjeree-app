@@ -10,7 +10,7 @@ type QuestionOption = {
 };
 
 type QuestionDisplayProps = {
-  questionNumber: number;
+  questionNumber?: number;
   questionText: string;
   options: QuestionOption[];
   correctAnswer?: string;
@@ -32,6 +32,11 @@ export function QuestionDisplay({
 }: QuestionDisplayProps) {
   const [selectedOption, setSelectedOption] = useState<string | undefined>(userAnswer);
   
+  // Move theme color hooks to the top level
+  const accentColor = useThemeColor({}, 'accent');
+  const primaryColor = useThemeColor({}, 'primary');
+  const borderColor = useThemeColor({}, 'border');
+  
   const handleSelectOption = (optionId: string) => {
     if (!showAnswer && onSelectOption) {
       setSelectedOption(optionId);
@@ -42,8 +47,8 @@ export function QuestionDisplay({
   const getOptionStyle = (optionId: string) => {
     if (!showAnswer) {
       return {
-        backgroundColor: selectedOption === optionId ? useThemeColor({}, 'accent') : 'transparent',
-        borderColor: selectedOption === optionId ? useThemeColor({}, 'primary') : useThemeColor({}, 'border'),
+        backgroundColor: selectedOption === optionId ? accentColor : 'transparent',
+        borderColor: selectedOption === optionId ? primaryColor : borderColor,
       };
     }
 
@@ -63,21 +68,25 @@ export function QuestionDisplay({
 
     return {
       backgroundColor: 'transparent',
-      borderColor: useThemeColor({}, 'border'),
+      borderColor: borderColor,
     };
   };
 
   return (
     <ThemedView style={[styles.container, style]}>
       <View style={styles.questionHeader}>
-        <View style={styles.questionNumber}>
-          <ThemedText style={styles.questionNumberText}>{questionNumber}</ThemedText>
-        </View>
+        {questionNumber !== undefined && (
+          <View style={styles.questionNumber}>
+            <ThemedText style={styles.questionNumberText}>{questionNumber}</ThemedText>
+          </View>
+        )}
         <ThemedText style={styles.questionText}>{questionText}</ThemedText>
       </View>
 
       <View style={styles.optionsContainer}>
-        {options.map((option) => (
+        {options.map((option, index) => {
+          const optionLabel = String.fromCharCode(65 + index); // A, B, C, D...
+          return (
           <TouchableOpacity
             key={option.id}
             style={[styles.option, getOptionStyle(option.id)]}
@@ -87,12 +96,13 @@ export function QuestionDisplay({
           >
             <View style={styles.optionContent}>
               <View style={styles.optionBullet}>
-                <ThemedText>{option.id}</ThemedText>
+                  <ThemedText>{optionLabel}</ThemedText>
               </View>
               <ThemedText style={styles.optionText}>{option.text}</ThemedText>
             </View>
           </TouchableOpacity>
-        ))}
+          );
+        })}
       </View>
     </ThemedView>
   );

@@ -5,44 +5,61 @@ import { ResultStatCard } from '@/components/shared/ResultStatCard';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useThemeColor } from '@/hooks/useThemeColor';
-import { mockQuestions } from '@/store/exam';
+import { questionBankConfigAtom } from '@/store/question-bank';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useAtom } from 'jotai';
 import React from 'react';
 import { ScrollView, Share, StyleSheet, View } from 'react-native';
 
-type ExamResultProps = {
-  totalQuestions: number;
-  correctAnswers: number;
-  incorrectAnswers: number;
-  unanswered: number;
-  timeTaken: number; // in seconds
-  subject: string;
-  userAnswers: Record<string, string>; // Add user answers prop
-  onGoHome: () => void;
-  onViewAnswers: () => void;
-};
+// Mock question bank questions (same as in Step4QuestionView)
+const questionBankQuestions = [
+  {
+    id: '1',
+    text: 'বাংলা ভাষার আদি সাহিত্য কোন যুগে রচিত হয়েছিল?',
+    options: [
+      { id: 'a', text: 'চর্যাপদ যুগ' },
+      { id: 'b', text: 'মঙ্গলকাব্য যুগ' },
+      { id: 'c', text: 'বৈষ্ণব পদাবলী যুগ' },
+      { id: 'd', text: 'আধুনিক যুগ' },
+    ],
+    correctAnswer: 'a',
+  },
+  {
+    id: '2',
+    text: 'বাংলা সাহিত্যের প্রথম মহিলা কবি কে?',
+    options: [
+      { id: 'a', text: 'চন্দ্রাবতী' },
+      { id: 'b', text: 'মাধবী' },
+      { id: 'c', text: 'রুক্মিণী' },
+      { id: 'd', text: 'রাধা' },
+    ],
+    correctAnswer: 'a',
+  },
+];
 
-export function ExamResult({
-  totalQuestions,
-  correctAnswers,
-  incorrectAnswers,
-  unanswered,
-  timeTaken,
-  subject,
-  userAnswers,
-  onGoHome,
-  onViewAnswers,
-}: ExamResultProps) {
-  const score = Math.round((correctAnswers / totalQuestions) * 100);
+export function Step5Result() {
+  const [config, setConfig] = useAtom(questionBankConfigAtom);
   
-  // Use global theme colors that exist in the theme
+  // Use actual results from config if available, otherwise use mock
+  const results = config.questionBankResults || {
+    totalQuestions: 20,
+    correctAnswers: 16,
+    incorrectAnswers: 3,
+    unanswered: 1,
+    timeTaken: 1200,
+    answers: {},
+  };
+
+  const score = Math.round((results.correctAnswers / results.totalQuestions) * 100);
+  
+  // Use global theme colors
   const mutedTextColor = useThemeColor({}, 'mutedForeground');
   const purpleColor = '#9333EA'; // Use the design purple color
   
   // Format time taken
   const formatTimeTaken = () => {
-    const minutes = Math.floor(timeTaken / 60);
-    const seconds = timeTaken % 60;
+    const minutes = Math.floor(results.timeTaken / 60);
+    const seconds = results.timeTaken % 60;
     return `${minutes} মি. ${seconds} সে.`;
   };
 
@@ -59,26 +76,26 @@ export function ExamResult({
     try {
       await Share.share({
         message: 
-          `আমি ${subject}-এ পরীক্ষায় ${score}% স্কোর করেছি! ${correctAnswers}/${totalQuestions} প্রশ্নের সঠিক উত্তর দিয়েছি।`,
+          `আমি ${config.subject?.name}-এ প্রশ্ন ব্যাংকে ${score}% স্কোর করেছি! ${results.correctAnswers}/${results.totalQuestions} প্রশ্নের সঠিক উত্তর দিয়েছি।`,
       });
     } catch (error) {
       console.error('Error sharing result:', error);
     }
   };
 
+  const handleGoHome = () => {
+    setConfig(prev => ({ ...prev, step: 1 }));
+  };
+
   // Get verdict for a question
   const getVerdict = (questionId: string) => {
-    const userAnswerId = userAnswers[questionId];
-    const question = mockQuestions.find(q => q.id === questionId);
+    const userAnswerId = results.answers[questionId];
+    const question = questionBankQuestions.find(q => q.id === questionId);
     
     if (!question) return { status: 'unanswered', text: 'উত্তর দেওয়া হয়নি' };
     if (!userAnswerId) return { status: 'unanswered', text: 'উত্তর দেওয়া হয়নি' };
     
-    // Convert option ID to option text
-    const optionIndex = userAnswerId.charCodeAt(0) - 97; // 'a' = 0, 'b' = 1, etc.
-    const userAnswerText = question.options[optionIndex];
-    
-    if (userAnswerText === question.correctAnswer) {
+    if (userAnswerId === question.correctAnswer) {
       return { status: 'correct', text: 'সঠিক' };
     } else {
       return { status: 'incorrect', text: 'ভুল' };
@@ -89,8 +106,8 @@ export function ExamResult({
     <ThemedView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.resultHeader}>
-          <ThemedText style={styles.resultTitle}>পরীক্ষার ফলাফল</ThemedText>
-          <ThemedText style={styles.subjectName}>{subject}</ThemedText>
+          <ThemedText style={styles.resultTitle}>প্রশ্ন ব্যাংক ফলাফল</ThemedText>
+          <ThemedText style={styles.subjectName}>{config.subject?.name}</ThemedText>
         </View>
 
         <View style={styles.scoreContainer}>
@@ -107,19 +124,19 @@ export function ExamResult({
         <View style={styles.statsContainer}>
           <ResultStatCard
             title="সঠিক"
-            value={correctAnswers}
+            value={results.correctAnswers}
             variant="success"
             style={styles.statCard}
           />
           <ResultStatCard
             title="ভুল"
-            value={incorrectAnswers}
+            value={results.incorrectAnswers}
             variant="error"
             style={styles.statCard}
           />
           <ResultStatCard
             title="উত্তর দেওয়া হয়নি"
-            value={unanswered}
+            value={results.unanswered}
             variant="warning"
             style={styles.statCard}
           />
@@ -130,11 +147,11 @@ export function ExamResult({
           <View style={styles.progressItem}>
             <View style={styles.progressHeader}>
               <ThemedText style={styles.progressLabel}>সঠিক উত্তর</ThemedText>
-              <ThemedText style={styles.progressValue}>{correctAnswers}/{totalQuestions}</ThemedText>
+              <ThemedText style={styles.progressValue}>{results.correctAnswers}/{results.totalQuestions}</ThemedText>
             </View>
             <ProgressBar 
-              value={correctAnswers}
-              max={totalQuestions}
+              value={results.correctAnswers}
+              max={results.totalQuestions}
               color="#10B981"
             />
           </View>
@@ -146,7 +163,7 @@ export function ExamResult({
             </View>
             <View style={styles.metaItem}>
               <Ionicons name="help-circle-outline" size={16} color="#6B7280" />
-              <ThemedText style={styles.metaText}>মোট প্রশ্ন: {totalQuestions}</ThemedText>
+              <ThemedText style={styles.metaText}>মোট প্রশ্ন: {results.totalQuestions}</ThemedText>
             </View>
           </View>
         </View>
@@ -154,18 +171,9 @@ export function ExamResult({
         <View style={styles.answersSection}>
           <ThemedText style={styles.sectionTitle}>উত্তরপত্র</ThemedText>
           
-          {mockQuestions.map((question, index) => {
-            const userAnswerId = userAnswers[question.id];
+          {questionBankQuestions.map((question, index) => {
+            const userAnswerId = results.answers[question.id];
             const verdict = getVerdict(question.id);
-            const options = question.options.map((option, optionIndex) => ({
-              id: String.fromCharCode(97 + optionIndex), // a, b, c, d
-              text: option,
-            }));
-            
-            // Convert user answer text to option ID
-            const getUserAnswerId = () => {
-              return userAnswerId; // Already in the correct format (a, b, c, d)
-            };
             
             return (
               <View key={question.id} style={styles.questionItem}>
@@ -192,8 +200,8 @@ export function ExamResult({
                 
                 <QuestionDisplay
                   questionText={question.text}
-                  options={options}
-                  userAnswer={getUserAnswerId()}
+                  options={question.options}
+                  userAnswer={userAnswerId}
                   correctAnswer={question.correctAnswer}
                   showAnswer={true}
                 />
@@ -215,7 +223,7 @@ export function ExamResult({
           </Button>
           
           <Button 
-            onPress={onGoHome}
+            onPress={handleGoHome}
             style={styles.homeButton}
           >
             <ThemedText>হোম পেজে ফিরে যান</ThemedText>
@@ -253,7 +261,6 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 8,
-    borderColor: '#8B5CF6', // Placeholder, will be replaced by purpleColor
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -261,25 +268,21 @@ const styles = StyleSheet.create({
   scoreValue: {
     fontSize: 32,
     fontWeight: 'bold',
-    // color: '#8B5CF6', // Placeholder, will be replaced by purpleColor
   },
   scoreLabel: {
     fontSize: 14,
-    // color: '#9CA3AF', // Placeholder, will be replaced by mutedTextColor
   },
   performanceText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    // color: '#8B5CF6', // Placeholder, will be replaced by purpleColor
+    fontWeight: '600',
   },
   statsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
     marginBottom: 24,
   },
   statCard: {
     flex: 1,
-    marginHorizontal: 4,
   },
   progressSection: {
     marginBottom: 24,
@@ -287,101 +290,109 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   progressItem: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   progressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   progressLabel: {
     fontSize: 14,
+    color: '#6B7280',
   },
   progressValue: {
     fontSize: 14,
     fontWeight: '600',
   },
   metaInfo: {
-    marginTop: 16,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    padding: 12,
+    gap: 8,
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 8,
   },
   metaText: {
     fontSize: 14,
-    color: '#4B5563',
+    color: '#6B7280',
   },
   answersSection: {
     marginBottom: 24,
   },
   questionItem: {
-    marginBottom: 16,
+    marginBottom: 24,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
   },
   questionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   questionNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#F3F4F6',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E0E7FF',
     justifyContent: 'center',
     alignItems: 'center',
   },
   questionNumberText: {
-    fontWeight: '600',
     fontSize: 14,
+    fontWeight: 'bold',
+    color: '#4B5563',
   },
   verdictBadge: {
-    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
   },
   correctBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#D1FAE5',
+    borderWidth: 1,
+    borderColor: '#10B981',
   },
   incorrectBadge: {
     backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#EF4444',
   },
   unansweredBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
   },
   verdictText: {
     fontSize: 12,
     fontWeight: '600',
   },
   correctText: {
-    color: '#059669',
+    color: '#10B981',
   },
   incorrectText: {
-    color: '#DC2626',
+    color: '#EF4444',
   },
   unansweredText: {
-    color: '#D97706',
+    color: '#6B7280',
   },
   buttonContainer: {
     gap: 12,
-    marginBottom: 24,
   },
   shareButton: {
     marginBottom: 8,
   },
-  homeButton: {},
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  homeButton: {
+    backgroundColor: '#9333EA',
   },
 }); 

@@ -1,12 +1,22 @@
 import { atom } from 'jotai';
 import { Subject } from './exam';
 
+export type QuestionBankResults = {
+  totalQuestions: number;
+  correctAnswers: number;
+  incorrectAnswers: number;
+  unanswered: number;
+  timeTaken: number;
+  answers: Record<string, string>;
+};
+
 export type QuestionBankConfig = {
   step: number;
   subject?: Subject | null;
   type?: 'board' | 'school' | null;
   institution?: string | null;
   session?: string | null;
+  questionBankResults?: QuestionBankResults;
 };
 
 export const initialQuestionBankConfig: QuestionBankConfig = {

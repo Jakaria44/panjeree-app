@@ -7,9 +7,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAtom } from 'jotai';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StepIndicator } from './StepIndicator';
 
 type StandardOption = {
-  id: 'basic' | 'intermediate' | 'advanced';
+  id: "engineering" | "main-book" | "varsity" | "medical";
   name: string;
   description: string;
   icon: string;
@@ -17,22 +18,28 @@ type StandardOption = {
 
 const standards: StandardOption[] = [
   {
-    id: 'basic',
-    name: 'সহজ',
-    description: 'সাধারণ প্রশ্ন, পরীক্ষার জন্য মৌলিক প্রস্তুতি',
-    icon: 'leaf-outline',
+    id: "main-book",
+    name: "মূল বই",
+    description: "পাঠ্যপুস্তক ভিত্তিক প্রশ্ন",
+    icon: "book-outline",
   },
   {
-    id: 'intermediate',
-    name: 'মধ্যম',
-    description: 'অপেক্ষাকৃত কঠিন প্রশ্ন, পাঠ্যপুস্তকের বিস্তারিত জ্ঞান',
-    icon: 'flame-outline',
+    id: "engineering",
+    name: "ইঞ্জিনিয়ারিং",
+    description: "ইঞ্জিনিয়ারিং ভর্তি পরীক্ষার মান",
+    icon: "construct-outline",
   },
   {
-    id: 'advanced',
-    name: 'কঠিন',
-    description: 'চ্যালেঞ্জিং প্রশ্ন, গভীর বিশ্লেষণাত্মক দক্ষতা প্রয়োজন',
-    icon: 'flash-outline',
+    id: "medical",
+    name: "মেডিকেল",
+    description: "মেডিকেল ভর্তি পরীক্ষার মান",
+    icon: "medical-outline",
+  },
+  {
+    id: "varsity",
+    name: "বিশ্ববিদ্যালয়",
+    description: "বিশ্ববিদ্যালয় ভর্তি পরীক্ষার মান",
+    icon: "school-outline",
   },
 ];
 
@@ -41,16 +48,25 @@ export function Step4SelectStandard() {
   const primaryColor = useThemeColor({}, 'primary');
   const purpleColor = useThemeColor({}, 'purple500');
 
-  const handleStandardSelect = (standard: 'basic' | 'intermediate' | 'advanced') => {
+  const handleStandardSelect = (standard: "engineering" | "main-book" | "varsity" | "medical") => {
     setConfig((prev) => ({
       ...prev,
-      standard,
+      questionStandard: standard,
       step: 5,
+    }));
+  };
+
+  const handleBack = () => {
+    setConfig(prev => ({
+      ...prev,
+      step: 3
     }));
   };
 
   return (
     <ThemedView style={styles.container}>
+      <StepIndicator onBack={handleBack} />
+      
       <ThemedText style={styles.title}>কোন মানের পরীক্ষা দিতে চাও?</ThemedText>
       <ThemedText style={styles.subtitle}>পরীক্ষার কঠিনতা মান নির্বাচন কর</ThemedText>
 
@@ -60,14 +76,14 @@ export function Step4SelectStandard() {
             key={option.id}
             style={[
               styles.optionCard,
-              config.standard === option.id && styles.selectedCard,
+              config.questionStandard === option.id && styles.selectedCard,
             ]}
             onPress={() => handleStandardSelect(option.id)}
             activeOpacity={0.7}
           >
             <View style={styles.optionHeader}>
-              <View style={[styles.iconContainer, config.standard === option.id && { backgroundColor: purpleColor }]}>
-                <Ionicons name={option.icon as any} size={24} color={config.standard === option.id ? '#fff' : '#6B7280'} />
+              <View style={[styles.iconContainer, config.questionStandard === option.id && { backgroundColor: purpleColor }]}>
+                <Ionicons name={option.icon as any} size={24} color={config.questionStandard === option.id ? '#fff' : '#6B7280'} />
               </View>
               <ThemedText style={styles.optionTitle}>{option.name}</ThemedText>
             </View>
@@ -78,8 +94,8 @@ export function Step4SelectStandard() {
 
       <View style={styles.buttonContainer}>
         <Button
-          onPress={() => handleStandardSelect(config.standard || 'intermediate')}
-          disabled={!config.standard}
+          onPress={() => handleStandardSelect(config.questionStandard || 'main-book')}
+          disabled={!config.questionStandard}
         >
           পরবর্তী ধাপে যান
         </Button>

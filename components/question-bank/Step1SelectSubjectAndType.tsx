@@ -1,16 +1,16 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { FeatureCard } from '@/components/shared/FeatureCard';
-import { subjects } from '@/store/exam';
+import { Subject, subjects } from '@/store/exam';
 import { questionBankConfigAtom, questionBankTypes } from '@/store/question-bank';
 import { useAtom } from 'jotai';
 import React from 'react';
-import { FlatList, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, ScrollView, StyleSheet, View } from 'react-native';
 
 export function Step1SelectSubjectAndType() {
   const [config, setConfig] = useAtom(questionBankConfigAtom);
 
-  const handleSubjectSelect = (subject: { id: string; name: string; icon?: string }) => {
+  const handleSubjectSelect = (subject: Subject) => {
     setConfig((prev) => ({ ...prev, subject, type: null }));
   };
 
@@ -18,17 +18,14 @@ export function Step1SelectSubjectAndType() {
     setConfig((prev) => ({ ...prev, type, step: 2 }));
   };
 
-  const renderSubject = ({ item }: { item: { id: string; name: string; icon?: string } }) => {
-    const iconSource = item.icon 
+  const renderSubject = ({ item }: { item: Subject }) => {
+    // Handle ReactNode icon or string icon
+    const iconSource = typeof item.icon === 'string' && item.icon
       ? { uri: item.icon }
       : require('@/assets/images/icon.png');
     
     return (
-      <TouchableOpacity
-        style={styles.subjectItem}
-        onPress={() => handleSubjectSelect(item)}
-        activeOpacity={0.7}
-      >
+      <View style={styles.subjectItem}>
         <FeatureCard
           title={item.name}
           icon={
@@ -38,18 +35,16 @@ export function Step1SelectSubjectAndType() {
             />
           }
           style={config.subject?.id === item.id ? styles.selectedCard : {}}
+          onPress={() => handleSubjectSelect(item)}
+          activeOpacity={0.7}
         />
-      </TouchableOpacity>
+      </View>
     );
   };
 
   const renderType = ({ item }: { item: { id: string; name: string } }) => {
     return (
-      <TouchableOpacity
-        style={styles.typeItem}
-        onPress={() => handleTypeSelect(item.id as 'board' | 'school')}
-        activeOpacity={0.7}
-      >
+      <View style={styles.typeItem}>
         <FeatureCard
           title={item.name}
           icon={
@@ -58,36 +53,42 @@ export function Step1SelectSubjectAndType() {
               style={styles.typeIcon}
             />
           }
+          onPress={() => handleTypeSelect(item.id as 'board' | 'school')}
+          activeOpacity={0.7}
         />
-      </TouchableOpacity>
+      </View>
     );
   };
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.section}>
-        <ThemedText style={styles.sectionTitle}>কোন বিষয়ের প্রশ্ন ব্যাঙ্ক চাও?</ThemedText>
-        <FlatList
-          data={subjects}
-          renderItem={renderSubject}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          contentContainerStyle={styles.subjectGrid}
-        />
-      </View>
-
-      {config.subject && (
+      <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>কোন ধরনের প্রশ্ন চাও?</ThemedText>
+          <ThemedText style={styles.sectionTitle}>কোন বিষয়ের প্রশ্ন ব্যাঙ্ক চাও?</ThemedText>
           <FlatList
-            data={questionBankTypes}
-            renderItem={renderType}
+            data={subjects}
+            renderItem={renderSubject}
             keyExtractor={(item) => item.id}
             numColumns={2}
-            contentContainerStyle={styles.typeGrid}
+            contentContainerStyle={styles.subjectGrid}
+            scrollEnabled={false}
           />
         </View>
-      )}
+
+        {config.subject && (
+          <View style={styles.section}>
+            <ThemedText style={styles.sectionTitle}>কোন ধরনের প্রশ্ন চাও?</ThemedText>
+            <FlatList
+              data={questionBankTypes}
+              renderItem={renderType}
+              keyExtractor={(item) => item.id}
+              numColumns={2}
+              contentContainerStyle={styles.typeGrid}
+              scrollEnabled={false}
+            />
+          </View>
+        )}
+      </ScrollView>
     </ThemedView>
   );
 }

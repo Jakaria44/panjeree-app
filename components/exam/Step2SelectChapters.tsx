@@ -2,108 +2,360 @@ import Button from '@/components/Button';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useThemeColor } from '@/hooks/useThemeColor';
-import { Chapter, chaptersData, examConfigAtom } from '@/store/exam';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Chapter, Paper, Section, examConfigAtom } from '@/store/exam';
+import { AntDesign, Feather, Ionicons } from '@expo/vector-icons';
 import { useAtom } from 'jotai';
-import React, { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { FlatList, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { StepIndicator } from './StepIndicator';
 
 export function Step2SelectChapters() {
   const [config, setConfig] = useAtom(examConfigAtom);
-  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [selectedSections, setSelectedSections] = useState<Record<string, Record<string, string[]>>>({});
+  const [selectedChapters, setSelectedChapters] = useState<Record<string, string[]>>({});
+  const [selectedPapers, setSelectedPapers] = useState<string[]>([]);
+  const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
+  const [expandedPapers, setExpandedPapers] = useState<Record<string, boolean>>({});
+  const [questionCount, setQuestionCount] = useState<string>(config.questionCount.toString());
+  
+  // Use global theme colors
   const primaryColor = useThemeColor({}, 'primary');
+  const accentColor = '#9333EA'; // Use the design purple color
 
-  useEffect(() => {
-    if (config.subject?.id && chaptersData[config.subject.id]) {
-      const subjectChapters = chaptersData[config.subject.id].map((chapter) => ({
-        ...chapter,
-        selected: config.selectedChapters?.includes(chapter.id) || false,
-      }));
-      setChapters(subjectChapters);
-    }
-  }, [config.subject]);
+  const handlePaperToggle = (paperId: string) => {
+    setSelectedPapers(prev => {
+      const isSelected = prev.includes(paperId);
+      if (isSelected) {
+        // Remove paper and all its chapters/sections
+        const newSelectedPapers = prev.filter(id => id !== paperId);
+        setSelectedChapters(prevChapters => {
+          const newChapters = { ...prevChapters };
+          delete newChapters[paperId];
+          return newChapters;
+        });
+        setSelectedSections(prevSections => {
+          const newSections = { ...prevSections };
+          delete newSections[paperId];
+          return newSections;
+        });
+        return newSelectedPapers;
+      } else {
+        // Add paper and all its chapters/sections
+        const paper = config.subject?.papers.find(p => p.id === paperId);
+        if (paper) {
+          const allChapterIds = paper.chapters.map(c => c.id);
+          const allSectionIds = paper.chapters.flatMap(c => c.sections.map(s => s.id));
+          
+          setSelectedChapters(prev => ({
+            ...prev,
+            [paperId]: allChapterIds
+          }));
+          
+          setSelectedSections(prev => ({
+            ...prev,
+            [paperId]: paper.chapters.reduce((acc, chapter) => ({
+              ...acc,
+              [chapter.id]: chapter.sections.map(s => s.id)
+            }), {})
+          }));
+        }
+        return [...prev, paperId];
+      }
+    });
+  };
 
-  const handleChapterToggle = (id: string) => {
-    setChapters((prevChapters) =>
-      prevChapters.map((chapter) =>
-        chapter.id === id ? { ...chapter, selected: !chapter.selected } : chapter
-      )
-    );
+  const handleChapterToggle = (paperId: string, chapterId: string) => {
+    setSelectedChapters(prev => {
+      const currentChapters = prev[paperId] || [];
+      const isSelected = currentChapters.includes(chapterId);
+      
+      if (isSelected) {
+        // Remove chapter and all its sections
+        const newChapters = currentChapters.filter(id => id !== chapterId);
+        setSelectedSections(prevSections => {
+          const newSections = { ...prevSections };
+          if (newSections[paperId]) {
+            delete newSections[paperId][chapterId];
+            if (Object.keys(newSections[paperId]).length === 0) {
+              delete newSections[paperId];
+            }
+          }
+          return newSections;
+        });
+        
+        const updatedChapters = { ...prev };
+        if (newChapters.length > 0) {
+          updatedChapters[paperId] = newChapters;
+        } else {
+          delete updatedChapters[paperId];
+        }
+        return updatedChapters;
+      } else {
+        // Add chapter and all its sections
+        const chapter = config.subject?.papers
+          .find(p => p.id === paperId)
+          ?.chapters.find(c => c.id === chapterId);
+        
+        if (chapter) {
+          setSelectedSections(prevSections => ({
+            ...prevSections,
+            [paperId]: {
+              ...prevSections[paperId],
+              [chapterId]: chapter.sections.map(s => s.id)
+            }
+          }));
+        }
+        
+        return {
+          ...prev,
+          [paperId]: [...currentChapters, chapterId]
+        };
+      }
+    });
+  };
+
+  const handleSectionToggle = (paperId: string, chapterId: string, sectionId: string) => {
+    setSelectedSections(prev => {
+      const newSelectedSections = { ...prev };
+      
+      if (!newSelectedSections[paperId]) {
+        newSelectedSections[paperId] = {};
+      }
+      
+      if (!newSelectedSections[paperId][chapterId]) {
+        newSelectedSections[paperId][chapterId] = [];
+      }
+      
+      const currentSections = newSelectedSections[paperId][chapterId];
+      const isSelected = currentSections.includes(sectionId);
+      
+      if (isSelected) {
+        newSelectedSections[paperId][chapterId] = currentSections.filter(id => id !== sectionId);
+      } else {
+        newSelectedSections[paperId][chapterId] = [...currentSections, sectionId];
+      }
+      
+      // Remove empty arrays and objects
+      if (newSelectedSections[paperId][chapterId].length === 0) {
+        delete newSelectedSections[paperId][chapterId];
+      }
+      if (Object.keys(newSelectedSections[paperId]).length === 0) {
+        delete newSelectedSections[paperId];
+      }
+      
+      return newSelectedSections;
+    });
   };
 
   const handleContinue = () => {
-    const selectedChapters = chapters.filter((chapter) => chapter.selected).map((chapter) => chapter.id);
+    const numQuestions = parseInt(questionCount) || config.questionCount;
     
     setConfig((prev) => ({
       ...prev,
-      chapters,
-      selectedChapters,
+      selectedSections,
+      questionCount: numQuestions,
       step: 3,
     }));
   };
 
-  const selectAll = () => {
-    setChapters((prevChapters) =>
-      prevChapters.map((chapter) => ({ ...chapter, selected: true }))
-    );
+  const handleBack = () => {
+    setConfig(prev => ({
+      ...prev,
+      step: 1
+    }));
   };
 
-  const unselectAll = () => {
-    setChapters((prevChapters) =>
-      prevChapters.map((chapter) => ({ ...chapter, selected: false }))
-    );
+  const toggleChapter = (chapterId: string) => {
+    setExpandedChapters(prev => ({
+      ...prev,
+      [chapterId]: !prev[chapterId]
+    }));
   };
 
-  const renderChapter = ({ item }: { item: Chapter }) => {
+  const togglePaper = (paperId: string) => {
+    setExpandedPapers(prev => ({
+      ...prev,
+      [paperId]: !prev[paperId]
+    }));
+  };
+
+  const isPaperSelected = (paperId: string) => {
+    return selectedPapers.includes(paperId);
+  };
+
+  const isChapterSelected = (paperId: string, chapterId: string) => {
+    return selectedChapters[paperId]?.includes(chapterId) || false;
+  };
+
+  const isSectionSelected = (paperId: string, chapterId: string, sectionId: string) => {
+    return selectedSections[paperId]?.[chapterId]?.includes(sectionId) || false;
+  };
+
+  const hasSelectedSections = Object.keys(selectedSections).length > 0;
+
+  const renderSection = ({ item, paperId, chapterId }: { item: Section; paperId: string; chapterId: string }) => {
+    const isSelected = isSectionSelected(paperId, chapterId, item.id);
+    
     return (
       <TouchableOpacity
-        style={[
-          styles.chapterItem,
-          item.selected && styles.chapterSelected,
-        ]}
-        onPress={() => handleChapterToggle(item.id)}
+        style={styles.sectionItem}
+        onPress={() => handleSectionToggle(paperId, chapterId, item.id)}
         activeOpacity={0.7}
       >
-        <ThemedText style={styles.chapterText}>{item.name}</ThemedText>
-        {item.selected && (
-          <View style={styles.checkIconContainer}>
-            <Ionicons name="checkmark-circle" size={20} color={primaryColor} />
-          </View>
-        )}
+          <ThemedText style={styles.sectionText}>{item.name}</ThemedText>
+        <View style={styles.checkbox}>
+          {isSelected ? (
+            <Ionicons name="checkbox" size={22} color={primaryColor} />
+          ) : (
+            <Ionicons name="checkbox-outline" size={22} color="#9CA3AF" />
+          )}
+        </View>
       </TouchableOpacity>
     );
   };
 
-  const hasSelectedChapters = chapters.some((chapter) => chapter.selected);
+  const renderChapter = ({ item, paperId }: { item: Chapter; paperId: string }) => {
+    const isExpanded = expandedChapters[item.id] || false;
+    const isSelected = isChapterSelected(paperId, item.id);
+    
+    return (
+      <View style={styles.chapterContainer}>
+        <TouchableOpacity 
+          style={styles.chapterHeader}
+          onPress={() => toggleChapter(item.id)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.chapterTitleContainer}>
+            <View style={styles.chapterIcon}>
+              <Feather name="book" size={16} color={primaryColor} />
+            </View>
+            <ThemedText style={styles.chapterTitle}>{item.name}</ThemedText>
+          </View>
+          
+          <View style={styles.chapterActions}>
+          <TouchableOpacity 
+              onPress={() => handleChapterToggle(paperId, item.id)}
+              style={styles.checkbox}
+          >
+              {isSelected ? (
+                <Ionicons name="checkbox" size={22} color={primaryColor} />
+              ) : (
+                <Ionicons name="checkbox-outline" size={22} color="#9CA3AF" />
+              )}
+            </TouchableOpacity>
+            
+            <AntDesign 
+              name={isExpanded ? "up" : "down"} 
+              size={16} 
+              color="#6B7280" 
+              style={styles.expandIcon}
+            />
+          </View>
+        </TouchableOpacity>
+        
+        {isExpanded && (
+          <View style={styles.sectionsList}>
+            {item.sections.map(section => (
+              <React.Fragment key={section.id}>
+                {renderSection({ item: section, paperId, chapterId: item.id })}
+              </React.Fragment>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderPaper = ({ item }: { item: Paper }) => {
+    const isExpanded = expandedPapers[item.id] || false;
+    const isSelected = isPaperSelected(item.id);
+    
+    return (
+      <View style={styles.paperContainer}>
+        <TouchableOpacity 
+          style={styles.paperHeader}
+          onPress={() => togglePaper(item.id)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.paperTitleContainer}>
+            <View style={styles.paperIcon}>
+              <Feather name="file-text" size={16} color={primaryColor} />
+            </View>
+            <ThemedText style={styles.paperTitle}>{item.name}</ThemedText>
+          </View>
+          
+          <View style={styles.paperActions}>
+          <TouchableOpacity 
+              onPress={() => handlePaperToggle(item.id)}
+              style={styles.checkbox}
+          >
+              {isSelected ? (
+                <Ionicons name="checkbox" size={22} color={primaryColor} />
+              ) : (
+                <Ionicons name="checkbox-outline" size={22} color="#9CA3AF" />
+              )}
+            </TouchableOpacity>
+            
+            <AntDesign 
+              name={isExpanded ? "up" : "down"} 
+              size={16} 
+              color="#6B7280" 
+              style={styles.expandIcon}
+            />
+          </View>
+        </TouchableOpacity>
+        
+        {isExpanded && (
+          <View style={styles.chaptersList}>
+            {item.chapters.map(chapter => (
+              <React.Fragment key={chapter.id}>
+                {renderChapter({ item: chapter, paperId: item.id })}
+              </React.Fragment>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <ThemedView style={styles.container}>
+      <StepIndicator onBack={handleBack} />
+
       <View style={styles.header}>
-        <ThemedText style={styles.title}>কোন অধ্যায়গুলো থেকে প্রশ্ন চাও?</ThemedText>
-        
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity onPress={selectAll}>
-            <ThemedText style={styles.actionText}>সব নির্বাচন করুন</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={unselectAll}>
-            <ThemedText style={styles.actionText}>সব বাতিল করুন</ThemedText>
-          </TouchableOpacity>
-        </View>
+        <ThemedText style={styles.title}>
+          {config.subject?.name} - অধ্যায় নির্বাচন
+        </ThemedText>
+      </View>
+      
+      <ThemedText style={styles.subtitle}>
+        কোন কোন টপিকের উপর পরীক্ষা দিতে চাও?
+      </ThemedText>
+
+      <View style={styles.questionCountContainer}>
+        <ThemedText style={styles.questionCountLabel}>প্রশ্নের সংখ্যা:</ThemedText>
+        <TextInput
+          style={styles.questionCountInput}
+          value={questionCount}
+          onChangeText={setQuestionCount}
+          keyboardType="numeric"
+          maxLength={3}
+        />
       </View>
 
       <FlatList
-        data={chapters}
-        renderItem={renderChapter}
+        data={config.subject?.papers || []}
+        renderItem={renderPaper}
         keyExtractor={(item) => item.id}
-        style={styles.chapterList}
-        contentContainerStyle={styles.chapterListContent}
+        style={styles.paperList}
+        contentContainerStyle={styles.paperListContent}
       />
 
       <View style={styles.buttonContainer}>
         <Button 
           onPress={handleContinue}
-          disabled={!hasSelectedChapters}
-          style={!hasSelectedChapters ? styles.disabledButton : {}}
+          disabled={!hasSelectedSections}
+          style={!hasSelectedSections ? styles.disabledButton : {}}
         >
           পরবর্তী ধাপে যান
         </Button>
@@ -125,39 +377,125 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 8,
   },
-  actionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  actionText: {
-    color: '#6B7280',
+  subtitle: {
     fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 16,
   },
-  chapterList: {
+  questionCountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 8,
+  },
+  questionCountLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  questionCountInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    width: 80,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  paperList: {
     flex: 1,
   },
-  chapterListContent: {
+  paperListContent: {
     paddingBottom: 16,
   },
-  chapterItem: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+  paperContainer: {
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  paperHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#F9FAFB',
   },
-  chapterSelected: {
+  paperTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  paperIcon: {
+    padding: 4,
+  },
+  paperTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#374151',
+  },
+  paperActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  checkbox: {
+    padding: 4,
+  },
+  expandIcon: {
+    padding: 4,
+  },
+  chapterContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  chapterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    paddingLeft: 16,
     backgroundColor: '#F3F4F6',
   },
-  chapterText: {
-    fontSize: 16,
-  },
-  checkIconContainer: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
+  chapterTitleContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  chapterIcon: {
+    padding: 4,
+  },
+  chapterTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#4B5563',
+  },
+  chapterActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  sectionsList: {
+    paddingLeft: 24,
+  },
+  chaptersList: {
+    paddingLeft: 16,
+  },
+  sectionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  sectionText: {
+    fontSize: 14,
+    flex: 1,
   },
   buttonContainer: {
     marginTop: 16,

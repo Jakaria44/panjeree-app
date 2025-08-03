@@ -5,7 +5,7 @@ import { useThemeColor } from '@/hooks/useThemeColor';
 import { institutions, questionBankConfigAtom, sessions } from '@/store/question-bank';
 import { useAtom } from 'jotai';
 import React from 'react';
-import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { FlatList, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export function Step2SelectInstitutionAndSession() {
   const [config, setConfig] = useAtom(questionBankConfigAtom);
@@ -75,27 +75,30 @@ export function Step2SelectInstitutionAndSession() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.section}>
-        <ThemedText style={styles.sectionTitle}>বোর্ড সিলেক্ট করুন</ThemedText>
-        <FlatList
-          data={institutions}
-          renderItem={renderInstitution}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-        />
-      </View>
-      
-      <View style={styles.section}>
-        <ThemedText style={styles.sectionTitle}>সাল সিলেক্ট করুন</ThemedText>
-        <FlatList
-          horizontal
-          data={sessions}
-          renderItem={renderSession}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.sessionsList}
-          showsHorizontalScrollIndicator={false}
-        />
-      </View>
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>বোর্ড সিলেক্ট করুন</ThemedText>
+          <FlatList
+            data={institutions}
+            renderItem={renderInstitution}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            scrollEnabled={false}
+          />
+        </View>
+        
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>সাল সিলেক্ট করুন</ThemedText>
+          <FlatList
+            horizontal
+            data={sessions}
+            renderItem={renderSession}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.sessionsList}
+            showsHorizontalScrollIndicator={false}
+          />
+        </View>
+      </ScrollView>
       
       <View style={styles.buttonContainer}>
         <Button
@@ -114,6 +117,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   section: {
     marginBottom: 24,
