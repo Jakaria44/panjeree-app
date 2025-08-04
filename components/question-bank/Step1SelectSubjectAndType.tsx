@@ -1,14 +1,18 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { FeatureCard } from '@/components/shared/FeatureCard';
-import { Subject, subjects } from '@/store/exam';
-import { questionBankConfigAtom, questionBankTypes } from '@/store/question-bank';
+import { useSubjects } from '@/hooks/useSubjects';
+import { Subject } from '@/store/commons';
+import {
+  questionBankConfigAtom,
+  questionBankTypes,
+} from '@/store/question-bank';
 import { useAtom } from 'jotai';
-import React from 'react';
 import { FlatList, Image, ScrollView, StyleSheet, View } from 'react-native';
 
 export function Step1SelectSubjectAndType() {
   const [config, setConfig] = useAtom(questionBankConfigAtom);
+  const { subjects } = useSubjects();
 
   const handleSubjectSelect = (subject: Subject) => {
     setConfig((prev) => ({ ...prev, subject, type: null }));
@@ -20,20 +24,16 @@ export function Step1SelectSubjectAndType() {
 
   const renderSubject = ({ item }: { item: Subject }) => {
     // Handle ReactNode icon or string icon
-    const iconSource = typeof item.icon === 'string' && item.icon
-      ? { uri: item.icon }
-      : require('@/assets/images/icon.png');
-    
+    const iconSource =
+      typeof item.icon === 'string' && item.icon
+        ? { uri: item.icon }
+        : require('@/assets/images/icon.png');
+
     return (
       <View style={styles.subjectItem}>
         <FeatureCard
           title={item.name}
-          icon={
-            <Image
-              source={iconSource}
-              style={styles.subjectIcon}
-            />
-          }
+          icon={<Image source={iconSource} style={styles.subjectIcon} />}
           style={config.subject?.id === item.id ? styles.selectedCard : {}}
           onPress={() => handleSubjectSelect(item)}
           activeOpacity={0.7}
@@ -64,11 +64,13 @@ export function Step1SelectSubjectAndType() {
     <ThemedView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>কোন বিষয়ের প্রশ্ন ব্যাঙ্ক চাও?</ThemedText>
+          <ThemedText style={styles.sectionTitle}>
+            কোন বিষয়ের প্রশ্ন ব্যাঙ্ক চাও?
+          </ThemedText>
           <FlatList
             data={subjects}
             renderItem={renderSubject}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.id.toString()}
             numColumns={2}
             contentContainerStyle={styles.subjectGrid}
             scrollEnabled={false}
@@ -77,7 +79,9 @@ export function Step1SelectSubjectAndType() {
 
         {config.subject && (
           <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>কোন ধরনের প্রশ্ন চাও?</ThemedText>
+            <ThemedText style={styles.sectionTitle}>
+              কোন ধরনের প্রশ্ন চাও?
+            </ThemedText>
             <FlatList
               data={questionBankTypes}
               renderItem={renderType}
@@ -109,14 +113,7 @@ const styles = StyleSheet.create({
   subjectGrid: {
     paddingBottom: 8,
   },
-  typeGrid: {
-    paddingBottom: 8,
-  },
   subjectItem: {
-    width: '50%',
-    padding: 6,
-  },
-  typeItem: {
     width: '50%',
     padding: 6,
   },
@@ -125,13 +122,20 @@ const styles = StyleSheet.create({
     height: 48,
     resizeMode: 'contain',
   },
+  selectedCard: {
+    borderColor: '#9333EA',
+    backgroundColor: '#FAF5FF',
+  },
+  typeGrid: {
+    paddingBottom: 8,
+  },
+  typeItem: {
+    width: '50%',
+    padding: 6,
+  },
   typeIcon: {
     width: 48,
     height: 48,
     resizeMode: 'contain',
   },
-  selectedCard: {
-    borderColor: '#9333EA',
-    backgroundColor: '#FAF5FF',
-  },
-}); 
+});

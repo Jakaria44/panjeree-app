@@ -1,5 +1,5 @@
 import { atom } from 'jotai';
-import { Paper, Subject } from './exam';
+import { Paper, Subject } from './commons';
 
 export type PracticeResults = {
   totalQuestions: number;
@@ -14,7 +14,7 @@ export type PracticeConfig = {
   step: number;
   subject: Subject | null;
   paper: Paper | null;
-  selectedSections: Record<string, string[]>;
+  selectedSections: Record<string, number[]>;
   practiceResults?: PracticeResults;
 };
 
@@ -25,4 +25,4 @@ export const initialPracticeConfig: PracticeConfig = {
   selectedSections: {},
 };
 
-export const practiceConfigAtom = atom<PracticeConfig>(initialPracticeConfig); 
+export const practiceConfigAtom = atom<PracticeConfig>(initialPracticeConfig);

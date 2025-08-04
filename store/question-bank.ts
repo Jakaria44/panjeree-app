@@ -1,5 +1,5 @@
 import { atom } from 'jotai';
-import { Subject } from './exam';
+import { Subject } from './commons';
 
 export type QuestionBankResults = {
   totalQuestions: number;
@@ -27,7 +27,9 @@ export const initialQuestionBankConfig: QuestionBankConfig = {
   session: null,
 };
 
-export const questionBankConfigAtom = atom<QuestionBankConfig>(initialQuestionBankConfig);
+export const questionBankConfigAtom = atom<QuestionBankConfig>(
+  initialQuestionBankConfig
+);
 
 // Question bank types
 export const questionBankTypes = [
@@ -55,4 +57,4 @@ export const sessions = [
   { id: '2021', name: '২০২১' },
   { id: '2020', name: '২০২০' },
   { id: '2019', name: '২০১৯' },
-]; 
+];

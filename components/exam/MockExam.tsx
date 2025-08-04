@@ -1,137 +1,175 @@
 import Button from '@/components/Button';
-import { QuestionDisplay } from '@/components/shared/QuestionDisplay';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { mockQuestions } from '@/store/exam';
-import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { examConfigAtom } from '@/store/exam';
+import { mockQuestions } from '@/utils/mockData';
+import { useAtom } from 'jotai';
+import { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { TimerProgress } from './TimerProgress';
 
-type Question = {
-  id: string;
-  text: string;
-  options: string[];
-  correctAnswer: string;
-};
-
-type MockExamProps = {
-  totalTime: number; // In seconds
-  onComplete: (answers: Record<string, string>) => void;
-};
-
-export function MockExam({ totalTime, onComplete }: MockExamProps) {
+export function MockExam() {
+  const [config, setConfig] = useAtom(examConfigAtom);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [timeUp, setTimeUp] = useState(false);
-  const [examCompleted, setExamCompleted] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(config.totalTime * 60); // Convert to seconds
+  const [isExamComplete, setIsExamComplete] = useState(false);
 
-  // Use questions from the store
-  const questions = mockQuestions;
-  const totalQuestions = questions.length;
+  const currentQuestion = mockQuestions[currentQuestionIndex];
 
   useEffect(() => {
-    if (timeUp && !examCompleted) {
-      handleSubmitExam();
+    if (timeLeft <= 0 && !isExamComplete) {
+      handleExamComplete();
     }
-  }, [timeUp]);
+  }, [timeLeft, isExamComplete]);
 
-  const handleAnswer = (questionId: string, optionId: string) => {
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleAnswerSelect = (answer: string) => {
     setAnswers((prev) => ({
       ...prev,
-      [questionId]: optionId,
+      [currentQuestion.id]: answer,
     }));
   };
 
-  const confirmSubmit = () => {
-    Alert.alert(
-      'পরীক্ষা সমাপ্ত করবেন?',
-      'আপনি কি নিশ্চিত যে আপনি পরীক্ষা সমাপ্ত করতে চান?',
-      [
-        {
-          text: 'না, ফিরে যান',
-          style: 'cancel',
-        },
-        {
-          text: 'হ্যাঁ, সমাপ্ত করুন',
-          onPress: handleSubmitExam,
-        },
-      ],
-    );
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < mockQuestions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    } else {
+      handleExamComplete();
+    }
   };
 
-  const handleSubmitExam = () => {
-    setExamCompleted(true);
-    onComplete(answers);
+  const handlePreviousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
   };
 
-  const handleTimeUp = () => {
-    Alert.alert('সময় শেষ!', 'পরীক্ষার নির্ধারিত সময় শেষ হয়েছে। আপনার উত্তরগুলো জমা দেয়া হবে।', [
-      { text: 'ঠিক আছে', onPress: () => setTimeUp(true) },
-    ]);
-  };
+  const handleExamComplete = () => {
+    setIsExamComplete(true);
 
-  const renderQuestion = (question: Question, index: number) => {
-    // Convert options to the format expected by QuestionDisplay
-    const options = question.options.map((option, optionIndex) => ({
-      id: String.fromCharCode(97 + optionIndex), // a, b, c, d
-      text: option,
+    // Calculate results
+    const totalQuestions = mockQuestions.length;
+    const correctAnswers = mockQuestions.reduce((count, question) => {
+      return count + (answers[question.id] === question.correctAnswer ? 1 : 0);
+    }, 0);
+    const incorrectAnswers = totalQuestions - correctAnswers;
+    const timeTaken = config.totalTime * 60 - timeLeft;
+
+    const examResults = {
+      totalQuestions,
+      correctAnswers,
+      incorrectAnswers,
+      unanswered: 0,
+      timeTaken,
+      answers,
+    };
+
+    setConfig((prev) => ({
+      ...prev,
+      examResults,
+      step: 5,
     }));
+  };
 
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  if (!currentQuestion) {
     return (
-      <View key={question.id} style={styles.questionItem}>
-        <QuestionDisplay
-          questionNumber={index + 1}
-          questionText={question.text}
-          options={options}
-          userAnswer={answers[question.id]}
-          onSelectOption={(optionId) => {
-            const optionText = question.options[optionId.charCodeAt(0) - 97];
-            handleAnswer(question.id, optionId);
-          }}
-        />
-      </View>
+      <ThemedView style={styles.container}>
+        <ThemedText style={styles.errorText}>No questions available</ThemedText>
+      </ThemedView>
     );
-  };
-
-  const answeredCount = Object.keys(answers).length;
+  }
 
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
-        <TimerProgress totalSeconds={totalTime} onTimeUp={handleTimeUp} isPaused={examCompleted} />
-        <View style={styles.progressInfo}>
-          <ThemedText style={styles.questionCounter}>
-            উত্তর দেওয়া হয়েছে: {answeredCount}/{totalQuestions}
+        <ThemedText style={styles.title}>
+          {config.subject?.name} - পরীক্ষা
+        </ThemedText>
+        <View style={styles.progressContainer}>
+          <ThemedText style={styles.progressText}>
+            প্রশ্ন {currentQuestionIndex + 1} / {mockQuestions.length}
           </ThemedText>
+          <TimerProgress
+            timeLeft={timeLeft}
+            totalTime={config.totalTime * 60}
+          />
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.questionContainer}
-        showsVerticalScrollIndicator={true}
-        contentContainerStyle={styles.questionContent}
+        showsVerticalScrollIndicator={false}
       >
-        {questions.map((question, index) => renderQuestion(question, index))}
+        <View style={styles.questionCard}>
+          <ThemedText style={styles.questionText}>
+            {currentQuestion.text}
+          </ThemedText>
+
+          <View style={styles.optionsContainer}>
+            {currentQuestion.options.map((option, index) => {
+              const isSelected = answers[currentQuestion.id] === option;
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.optionButton,
+                    isSelected && styles.selectedOption,
+                  ]}
+                  onPress={() => handleAnswerSelect(option)}
+                  activeOpacity={0.7}
+                >
+                  <ThemedText
+                    style={[
+                      styles.optionText,
+                      isSelected && styles.selectedOptionText,
+                    ]}
+                  >
+                    {String.fromCharCode(65 + index)}. {option}
+                  </ThemedText>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
       </ScrollView>
 
-      <View style={styles.bottomContainer}>
-        <View style={styles.progressDots}>
-          {questions.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.dot,
-                answers[questions[index].id] && styles.answeredDot,
-              ]}
-            />
-          ))}
-        </View>
-        
-        <View style={styles.buttonContainer}>
+      <View style={styles.footer}>
+        <View style={styles.navigationButtons}>
           <Button
-            onPress={confirmSubmit}
-          >
-            পরীক্ষা সমাপ্ত করুন
-          </Button>
+            title='পূর্ববর্তী'
+            onPress={handlePreviousQuestion}
+            disabled={currentQuestionIndex === 0}
+            style={styles.navButton}
+          />
+          <Button
+            title={
+              currentQuestionIndex === mockQuestions.length - 1
+                ? 'সমাপ্ত'
+                : 'পরবর্তী'
+            }
+            onPress={handleNextQuestion}
+            style={styles.navButton}
+          />
         </View>
       </View>
     </ThemedView>
@@ -144,46 +182,76 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   header: {
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
     marginBottom: 16,
   },
-  progressInfo: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 8,
+  progressContainer: {
+    marginBottom: 16,
   },
-  questionCounter: {
+  progressText: {
     fontSize: 14,
-    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 8,
   },
   questionContainer: {
     flex: 1,
   },
-  questionContent: {
-    paddingBottom: 16,
+  questionCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  questionItem: {
-    marginBottom: 24,
+  questionText: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 20,
   },
-  bottomContainer: {
+  optionsContainer: {
+    gap: 12,
+  },
+  optionButton: {
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    backgroundColor: 'white',
+  },
+  selectedOption: {
+    borderColor: '#9333EA',
+    backgroundColor: '#FAF5FF',
+  },
+  optionText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  selectedOptionText: {
+    color: '#9333EA',
+    fontWeight: '500',
+  },
+  footer: {
     marginTop: 16,
   },
-  progressDots: {
+  navigationButtons: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 16,
+    gap: 12,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E5E7EB',
+  navButton: {
+    flex: 1,
+    backgroundColor: '#9333EA',
   },
-  answeredDot: {
-    backgroundColor: '#10B981',
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#EF4444',
   },
-  buttonContainer: {
-    marginTop: 8,
-  },
-}); 
+});

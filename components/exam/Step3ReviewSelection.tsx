@@ -4,38 +4,39 @@ import { ThemedView } from '@/components/ThemedView';
 import { examConfigAtom } from '@/store/exam';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAtom } from 'jotai';
-import React from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { StepIndicator } from './StepIndicator';
 
 export function Step3ReviewSelection() {
   const [config, setConfig] = useAtom(examConfigAtom);
-  
+
   // Get selected sections from the config
   const selectedSections = config.selectedSections || {};
-  
-  // Create a flat list of selected sections with their context
+
+  // Create a flat list of selected topics with their context
   const selectedItems: Array<{
-    id: string;
+    id: number;
     name: string;
     paperName: string;
     chapterName: string;
   }> = [];
 
   Object.entries(selectedSections).forEach(([paperId, chapters]) => {
-    const paper = config.subject?.papers.find(p => p.id === paperId);
+    const paper = config.subject?.papers.find(
+      (p) => p.id.toString() === paperId
+    );
     if (!paper) return;
 
-    Object.entries(chapters).forEach(([chapterId, sectionIds]) => {
-      const chapter = paper.chapters.find(c => c.id === chapterId);
+    Object.entries(chapters).forEach(([chapterId, topicIds]) => {
+      const chapter = paper.chapters.find((c) => c.id.toString() === chapterId);
       if (!chapter) return;
 
-      sectionIds.forEach(sectionId => {
-        const section = chapter.sections.find(s => s.id === sectionId);
-        if (section) {
+      topicIds.forEach((topicId) => {
+        const topic = chapter.topics.find((t) => t.id === topicId);
+        if (topic) {
           selectedItems.push({
-            id: sectionId,
-            name: section.name,
+            id: topicId,
+            name: topic.name,
             paperName: paper.name,
             chapterName: chapter.name,
           });
@@ -45,26 +46,32 @@ export function Step3ReviewSelection() {
   });
 
   const handleContinue = () => {
-    setConfig(prev => ({
+    setConfig((prev) => ({
       ...prev,
-      step: 4
+      step: 4,
     }));
   };
 
   const handleBack = () => {
-    setConfig(prev => ({
+    setConfig((prev) => ({
       ...prev,
-      step: 2
+      step: 2,
     }));
   };
 
-  const renderSelectedItem = ({ item }: { item: { id: string; name: string; paperName: string; chapterName: string } }) => {
+  const renderSelectedItem = ({
+    item,
+  }: {
+    item: { id: number; name: string; paperName: string; chapterName: string };
+  }) => {
     return (
       <View style={styles.selectedItem}>
-        <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+        <Ionicons name='checkmark-circle' size={18} color='#10B981' />
         <View style={styles.itemDetails}>
           <ThemedText style={styles.itemName}>{item.name}</ThemedText>
-          <ThemedText style={styles.itemContext}>{item.paperName} • {item.chapterName}</ThemedText>
+          <ThemedText style={styles.itemContext}>
+            {item.paperName} • {item.chapterName}
+          </ThemedText>
         </View>
       </View>
     );
@@ -76,7 +83,7 @@ export function Step3ReviewSelection() {
 
       <View style={styles.header}>
         <ThemedText style={styles.title}>আপনার নির্বাচিত বিষয়সমূহ</ThemedText>
-        
+
         <View style={styles.subjectContainer}>
           <ThemedText style={styles.subheading}>বিষয়:</ThemedText>
           <ThemedText style={styles.value}>{config.subject?.name}</ThemedText>
@@ -85,38 +92,55 @@ export function Step3ReviewSelection() {
 
       <View style={styles.sectionsSection}>
         <View style={styles.sectionHeader}>
-          <ThemedText style={styles.subheading}>নির্বাচিত বিভাগসমূহ:</ThemedText>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onPress={handleBack}
-          >
+          <ThemedText style={styles.subheading}>নির্বাচিত টপিকসমূহ:</ThemedText>
+          <Button variant='ghost' size='sm' onPress={handleBack}>
             <View style={styles.editButton}>
-              <Ionicons name="pencil-outline" size={16} color="#6B7280" />
+              <Ionicons name='pencil-outline' size={16} color='#6B7280' />
               <ThemedText style={styles.editText}>সম্পাদনা</ThemedText>
             </View>
           </Button>
         </View>
 
-        <View style={styles.sectionsList}>
+        <View style={styles.selectedItemsContainer}>
           <FlatList
             data={selectedItems}
             renderItem={renderSelectedItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.id.toString()}
             scrollEnabled={false}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <ThemedText style={styles.emptyText}>
+                  কোন টপিক নির্বাচিত হয়নি
+                </ThemedText>
+              </View>
+            }
           />
         </View>
       </View>
 
-      <View style={styles.questionCountContainer}>
-        <ThemedText style={styles.subheading}>প্রশ্নের সংখ্যা:</ThemedText>
-        <ThemedText style={styles.value}>{config.questionCount}</ThemedText>
+      <View style={styles.summarySection}>
+        <View style={styles.summaryItem}>
+          <ThemedText style={styles.summaryLabel}>মোট টপিক:</ThemedText>
+          <ThemedText style={styles.summaryValue}>
+            {selectedItems.length}
+          </ThemedText>
+        </View>
+
+        <View style={styles.summaryItem}>
+          <ThemedText style={styles.summaryLabel}>প্রশ্ন সংখ্যা:</ThemedText>
+          <ThemedText style={styles.summaryValue}>
+            {config.questionCount}
+          </ThemedText>
+        </View>
       </View>
 
       <View style={styles.buttonContainer}>
-        <Button onPress={handleContinue}>
-          পরবর্তী ধাপে যান
-        </Button>
+        <Button
+          title='এগিয়ে যাও'
+          onPress={handleContinue}
+          style={styles.continueButton}
+          textStyle={styles.continueButtonText}
+        />
       </View>
     </ThemedView>
   );
@@ -131,14 +155,23 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 16,
   },
   subjectContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 8,
+  },
+  subheading: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  value: {
+    fontSize: 16,
+    color: '#6B7280',
   },
   sectionsSection: {
     flex: 1,
@@ -147,56 +180,79 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  subheading: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  value: {
-    fontSize: 16,
-  },
-  sectionsList: {
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    padding: 12,
-  },
-  selectedItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    paddingVertical: 8,
-  },
-  itemDetails: {
-    flex: 1,
-  },
-  itemName: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  itemContext: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  questionCountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 16,
     marginBottom: 16,
   },
   editButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
   },
   editText: {
-    color: '#6B7280',
     fontSize: 14,
+    color: '#6B7280',
+    marginLeft: 4,
+  },
+  selectedItemsContainer: {
+    flex: 1,
+  },
+  selectedItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  itemDetails: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  itemContext: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  emptyContainer: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontStyle: 'italic',
+  },
+  summarySection: {
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9333EA',
   },
   buttonContainer: {
     marginTop: 24,
   },
-}); 
+  continueButton: {
+    backgroundColor: '#9333EA',
+  },
+  continueButtonText: {
+    color: 'white',
+    fontWeight: '600',
+  },
+});

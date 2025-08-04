@@ -2,31 +2,35 @@ import Button from '@/components/Button';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useThemeColor } from '@/hooks/useThemeColor';
-import { Chapter, Section } from '@/store/exam';
+import { Chapter, Topic } from '@/store/commons';
 import { practiceConfigAtom } from '@/store/prepare';
 import { AntDesign, Feather, Ionicons } from '@expo/vector-icons';
 import { useAtom } from 'jotai';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export function Step2SelectChapters() {
   const [config, setConfig] = useAtom(practiceConfigAtom);
   const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
+  const [expandedChapters, setExpandedChapters] = useState<
+    Record<string, boolean>
+  >({});
   const primaryColor = useThemeColor({}, 'primary');
 
   useEffect(() => {
     if (config.subject?.id && config.paper?.id) {
       // Find the paper in the subject's papers
-      const selectedPaper = config.subject.papers.find(p => p.id === config.paper?.id);
-      
+      const selectedPaper = config.subject.papers.find(
+        (p) => p.id === config.paper?.id
+      );
+
       if (selectedPaper && selectedPaper.chapters) {
         setChapters(selectedPaper.chapters);
-        
+
         // Initialize expanded state for all chapters
         const initialExpanded: Record<string, boolean> = {};
         selectedPaper.chapters.forEach((chapter: Chapter) => {
-          initialExpanded[chapter.id] = true; // Start with all expanded
+          initialExpanded[chapter.id.toString()] = true; // Start with all expanded
         });
         setExpandedChapters(initialExpanded);
       }
@@ -34,61 +38,73 @@ export function Step2SelectChapters() {
   }, [config.subject, config.paper]);
 
   const toggleChapter = (chapterId: string) => {
-    setExpandedChapters(prev => ({
+    setExpandedChapters((prev) => ({
       ...prev,
-      [chapterId]: !prev[chapterId]
+      [chapterId]: !prev[chapterId],
     }));
   };
 
-  const handleSectionChange = (chapterId: string, sectionId: string, checked: boolean) => {
-    setConfig(prev => {
+  const handleSectionChange = (
+    chapterId: string,
+    topicId: string,
+    checked: boolean
+  ) => {
+    setConfig((prev) => {
       const newSelected = { ...prev.selectedSections };
-      
+
       if (!newSelected[chapterId]) {
         newSelected[chapterId] = [];
       }
-      
+
       if (checked) {
-        newSelected[chapterId] = [...newSelected[chapterId], sectionId];
+        newSelected[chapterId] = [...newSelected[chapterId], parseInt(topicId)];
       } else {
-        newSelected[chapterId] = newSelected[chapterId].filter(id => id !== sectionId);
+        newSelected[chapterId] = newSelected[chapterId].filter(
+          (id) => id !== parseInt(topicId)
+        );
       }
-      
+
       if (newSelected[chapterId].length === 0) {
         delete newSelected[chapterId];
       }
-      
+
       return { ...prev, selectedSections: newSelected };
     });
   };
 
   const handleChapterSelectAll = (chapter: Chapter, checked: boolean) => {
-    setConfig(prev => {
+    setConfig((prev) => {
       const newSelected = { ...prev.selectedSections };
-      
+
       if (checked) {
-        newSelected[chapter.id] = chapter.sections.map(s => s.id);
+        newSelected[chapter.id.toString()] = chapter.topics.map((t) => t.id);
       } else {
-        delete newSelected[chapter.id];
+        delete newSelected[chapter.id.toString()];
       }
-      
+
       return { ...prev, selectedSections: newSelected };
     });
   };
 
   const getChapterCheckedState = (chapter: Chapter) => {
-    const selectedCount = config.selectedSections[chapter.id]?.length || 0;
+    const selectedCount =
+      config.selectedSections[chapter.id.toString()]?.length || 0;
     if (selectedCount === 0) return false;
-    if (selectedCount === chapter.sections.length) return true;
+    if (selectedCount === chapter.topics.length) return true;
     return 'indeterminate';
   };
 
   const goBack = () => {
-    setConfig(prev => ({ ...prev, step: 1, paper: null, selectedSections: {} }));
+    setConfig((prev) => ({
+      ...prev,
+      step: 1,
+      paper: null,
+      selectedSections: {},
+    }));
   };
 
   const startPractice = () => {
-    setConfig(prev => ({ ...prev, step: 3 }));
+    setConfig((prev) => ({ ...prev, step: 3 }));
   };
 
   // Check if any sections are selected
@@ -98,86 +114,114 @@ export function Step2SelectChapters() {
   if (chapters.length === 0) {
     return (
       <ThemedView style={styles.container}>
-        <View style={styles.noChaptersNotice}>
-          <ThemedText style={styles.noChaptersText}>
-            এই পত্রটির জন্য এখনও কোন অধ্যায়/সেকশন যোগ করা হয়নি।
+        <View style={styles.emptyContainer}>
+          <ThemedText style={styles.emptyText}>
+            এই পত্রটির জন্য এখনও কোন অধ্যায়/টপিক যোগ করা হয়নি।
           </ThemedText>
-          <Button onPress={goBack}>পূর্বের ধাপে ফিরে যান</Button>
+          <Button
+            title='পূর্বের ধাপে ফিরে যান'
+            onPress={goBack}
+            style={styles.backButton}
+          />
         </View>
       </ThemedView>
     );
   }
 
-  const renderSection = ({ item, chapterId }: { item: Section; chapterId: string }) => {
-    const isSelected = config.selectedSections[chapterId]?.includes(item.id) || false;
-    
+  const renderSection = ({
+    item,
+    chapterId,
+  }: {
+    item: Topic;
+    chapterId: string;
+  }) => {
+    const isSelected =
+      config.selectedSections[chapterId]?.includes(item.id) || false;
+
     return (
       <TouchableOpacity
-        key={item.id}
-        style={styles.sectionItem}
-        onPress={() => handleSectionChange(chapterId, item.id, !isSelected)}
+        style={[styles.sectionItem, isSelected && styles.selectedSection]}
+        onPress={() =>
+          handleSectionChange(chapterId, item.id.toString(), !isSelected)
+        }
         activeOpacity={0.7}
       >
-        <ThemedText style={styles.sectionText}>{item.name}</ThemedText>
-        <View style={styles.checkbox}>
-          {isSelected ? (
-            <Ionicons name="checkbox" size={22} color={primaryColor} />
-          ) : (
-            <Ionicons name="checkbox-outline" size={22} color="#9CA3AF" />
-          )}
+        <View style={styles.sectionContent}>
+          <ThemedText
+            style={[
+              styles.sectionText,
+              isSelected && styles.selectedSectionText,
+            ]}
+          >
+            {item.name}
+          </ThemedText>
+          <View
+            style={[styles.checkbox, isSelected && styles.selectedCheckbox]}
+          >
+            {isSelected && <AntDesign name='check' size={12} color='white' />}
+          </View>
         </View>
       </TouchableOpacity>
     );
   };
 
   const renderChapter = ({ item }: { item: Chapter }) => {
-    const isSelected = getChapterCheckedState(item);
-    const isExpanded = expandedChapters[item.id];
-    
+    const isExpanded = expandedChapters[item.id.toString()] || false;
+    const checkedState = getChapterCheckedState(item);
+
     return (
       <View style={styles.chapterContainer}>
         <TouchableOpacity
           style={styles.chapterHeader}
-          onPress={() => toggleChapter(item.id)}
+          onPress={() => toggleChapter(item.id.toString())}
           activeOpacity={0.7}
         >
-          <View style={styles.chapterTitleContainer}>
-            <View style={styles.chapterIcon}>
-              <Feather name="book" size={16} color={primaryColor} />
+          <View style={styles.chapterContent}>
+            <View style={styles.chapterInfo}>
+              <Feather name='book' size={16} color={primaryColor} />
+              <ThemedText style={styles.chapterText}>{item.name}</ThemedText>
             </View>
-            <ThemedText style={styles.chapterTitle}>{item.name}</ThemedText>
-          </View>
-          
-          <View style={styles.chapterActions}>
-            <TouchableOpacity 
-              onPress={() => handleChapterSelectAll(item, !isSelected)}
-              style={styles.checkbox}
-            >
-              {isSelected === true ? (
-                <Ionicons name="checkbox" size={22} color={primaryColor} />
-              ) : isSelected === 'indeterminate' ? (
-                <Ionicons name="remove-circle" size={22} color={primaryColor} />
-              ) : (
-                <Ionicons name="checkbox-outline" size={22} color="#9CA3AF" />
-              )}
-            </TouchableOpacity>
-            
-            <AntDesign 
-              name={isExpanded ? "up" : "down"} 
-              size={16} 
-              color="#6B7280" 
-              style={styles.expandIcon}
-            />
+            <View style={styles.chapterActions}>
+              <TouchableOpacity
+                onPress={() =>
+                  handleChapterSelectAll(item, checkedState !== true)
+                }
+                style={styles.selectAllButton}
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    checkedState && styles.selectedCheckbox,
+                  ]}
+                >
+                  {checkedState && (
+                    <AntDesign name='check' size={12} color='white' />
+                  )}
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => toggleChapter(item.id.toString())}
+              >
+                <Ionicons
+                  name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={primaryColor}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
         </TouchableOpacity>
-        
+
         {isExpanded && (
-          <View style={styles.sectionsList}>
-            {item.sections.map(section => (
-              <React.Fragment key={section.id}>
-                {renderSection({ item: section, chapterId: item.id })}
-              </React.Fragment>
-            ))}
+          <View style={styles.sectionsContainer}>
+            <FlatList
+              data={item.topics}
+              renderItem={({ item: topic }) =>
+                renderSection({ item: topic, chapterId: item.id.toString() })
+              }
+              keyExtractor={(topic) => topic.id.toString()}
+              scrollEnabled={false}
+            />
           </View>
         )}
       </View>
@@ -187,35 +231,30 @@ export function Step2SelectChapters() {
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={goBack} style={styles.backButton}>
-          <AntDesign name="arrowleft" size={20} color="#4B5563" />
-        </TouchableOpacity>
-        
         <ThemedText style={styles.title}>
           {config.subject?.name} ({config.paper?.name})
         </ThemedText>
+        <ThemedText style={styles.subtitle}>
+          কোন কোন টপিকের উপর প্রস্তুতি নিতে চাও?
+        </ThemedText>
       </View>
-      
-      <ThemedText style={styles.subtitle}>
-        কোন কোন টপিকের উপর প্রস্তুতি নিতে চাও?
-      </ThemedText>
 
       <FlatList
         data={chapters}
         renderItem={renderChapter}
-        keyExtractor={(item) => item.id}
-        style={styles.chaptersList}
-        contentContainerStyle={styles.chaptersListContent}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.chaptersList}
       />
 
       <View style={styles.buttonContainer}>
-        <Button 
+        <Button
+          title='শুরু কর'
           onPress={startPractice}
           disabled={!hasSelectedSections}
-          style={!hasSelectedSections ? styles.disabledButton : {}}
-        >
-          শুরু কর
-        </Button>
+          style={
+            !hasSelectedSections ? styles.disabledButton : styles.primaryButton
+          }
+        />
       </View>
     </ThemedView>
   );
@@ -226,105 +265,118 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  header: {
-    flexDirection: 'row',
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 32,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    color: '#6B7280',
   },
   backButton: {
-    padding: 8,
-    marginRight: 8,
+    backgroundColor: '#9333EA',
+  },
+  header: {
+    marginBottom: 24,
   },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    flex: 1,
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    marginBottom: 16,
-  },
-  noChaptersNotice: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    marginVertical: 16,
-  },
-  noChaptersText: {
-    textAlign: 'center',
-    marginBottom: 16,
     color: '#6B7280',
   },
   chaptersList: {
-    flex: 1,
-  },
-  chaptersListContent: {
-    paddingBottom: 16,
+    flexGrow: 1,
   },
   chapterContainer: {
-    marginBottom: 8,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
+    marginBottom: 16,
+    backgroundColor: 'white',
+    borderRadius: 12,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   chapterHeader: {
+    padding: 16,
+    backgroundColor: 'white',
+  },
+  chapterContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
-  chapterTitleContainer: {
+  chapterInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  chapterIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    backgroundColor: '#EDE9FE',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  chapterTitle: {
+  chapterText: {
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 8,
   },
   chapterActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  checkbox: {
-    padding: 4,
+  selectAllButton: {
+    marginRight: 12,
   },
-  expandIcon: {
-    marginLeft: 8,
-  },
-  sectionsList: {
-    paddingLeft: 16,
+  sectionsContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   sectionItem: {
+    padding: 12,
+    marginBottom: 4,
+    borderRadius: 8,
+  },
+  selectedSection: {
+    backgroundColor: '#F3E8FF',
+  },
+  sectionContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
   sectionText: {
     fontSize: 14,
     flex: 1,
   },
+  selectedSectionText: {
+    color: '#9333EA',
+    fontWeight: '500',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedCheckbox: {
+    backgroundColor: '#9333EA',
+    borderColor: '#9333EA',
+  },
   buttonContainer: {
-    marginTop: 16,
+    marginTop: 24,
+  },
+  primaryButton: {
+    backgroundColor: '#9333EA',
   },
   disabledButton: {
-    opacity: 0.5,
+    backgroundColor: '#D1D5DB',
   },
-}); 
+});
