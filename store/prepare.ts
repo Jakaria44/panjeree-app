@@ -1,5 +1,6 @@
 import { atom } from 'jotai';
 import { Paper, Subject } from './commons';
+import { MCQ } from "./exam";
 
 export type PracticeResults = {
   totalQuestions: number;
@@ -7,7 +8,7 @@ export type PracticeResults = {
   incorrectAnswers: number;
   skippedQuestions: number;
   timeTaken: number;
-  answers: Record<string, string>;
+  answers: Record<number, number>;
 };
 
 export type PracticeConfig = {
@@ -15,6 +16,10 @@ export type PracticeConfig = {
   subject: Subject | null;
   paper: Paper | null;
   selectedSections: Record<string, number[]>;
+  questions: MCQ[];
+  currentQuestionIndex: number;
+  answers: Record<number, number>;
+  isCompleted: boolean;
   practiceResults?: PracticeResults;
 };
 
@@ -23,6 +28,10 @@ export const initialPracticeConfig: PracticeConfig = {
   subject: null,
   paper: null,
   selectedSections: {},
+  questions: [],
+  currentQuestionIndex: 0,
+  answers: {},
+  isCompleted: false,
 };
 
 export const practiceConfigAtom = atom<PracticeConfig>(initialPracticeConfig);

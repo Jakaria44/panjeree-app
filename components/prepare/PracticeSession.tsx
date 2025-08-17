@@ -2,110 +2,122 @@ import Button from '@/components/Button';
 import { ProgressBar } from '@/components/shared/ProgressBar';
 import { QuestionDisplay } from '@/components/shared/QuestionDisplay';
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { mockQuestions } from '@/store/exam';
-import { practiceConfigAtom } from '@/store/prepare';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useAtom } from 'jotai';
-import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ThemedView } from "@/components/ThemedView";
+import { practiceConfigAtom } from "@/store/prepare";
+import { extractTopicIds, questionService } from "@/utils/api";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useAtom } from "jotai";
+import React, { useEffect, useState } from "react";
+import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 
 export function PracticeSession() {
   const [config, setConfig] = useAtom(practiceConfigAtom);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<string | undefined>(undefined);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [timeSpent, setTimeSpent] = useState(0);
 
   // Timer effect
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeSpent(prev => prev + 1);
+      setTimeSpent((prev) => prev + 1);
     }, 1000);
-    
+
     return () => clearInterval(timer);
   }, []);
 
-  const totalQuestions = 10; // Fixed number of questions as per web version
-  const currentQuestion = mockQuestions[currentQuestionIndex % mockQuestions.length];
+  const totalQuestions = config.questions?.length || 0;
+  const currentQuestion = config.questions?.[config.currentQuestionIndex];
 
-  const handleAnswerSelect = (answer: string) => {
+  // Load questions when component mounts
+  useEffect(() => {
+    const loadQuestions = async () => {
+      if (!config.questions || config.questions.length === 0) {
+        setIsLoading(true);
+        try {
+          const topicIds = extractTopicIds(config.selectedSections);
+          if (topicIds.length === 0) {
+            Alert.alert("Error", "Please select at least one topic");
+            return;
+          }
+
+          const topicIdsString = topicIds.join(",");
+          const questions = await questionService.getMCQs(topicIdsString);
+
+          setConfig((prev) => ({
+            ...prev,
+            questions,
+            currentQuestionIndex: 0,
+            answers: {},
+            isCompleted: false,
+          }));
+        } catch (error) {
+          console.error("Error loading questions:", error);
+          Alert.alert("Error", "Failed to load questions. Please try again.");
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadQuestions();
+  }, [config.selectedSections, config.questions?.length, setConfig]);
+
+  const handleAnswerSelect = (answerId: string | number) => {
     if (!isAnswered) {
-      setSelectedAnswer(answer);
-      setAnswers(prev => ({
-        ...prev,
-        [currentQuestion.id]: answer
-      }));
+      console.log(answerId);
+      setSelectedAnswer(
+        typeof answerId === "number" ? answerId : parseInt(answerId)
+      );
       setIsAnswered(true);
     }
   };
 
   const handleNext = () => {
-    if (currentQuestionIndex < totalQuestions - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
-      setSelectedAnswer(undefined);
+    if (config.currentQuestionIndex < totalQuestions - 1) {
+      setConfig((prev) => ({
+        ...prev,
+        currentQuestionIndex: prev.currentQuestionIndex + 1,
+        answers: {
+          ...prev.answers,
+          [currentQuestion.id]: selectedAnswer!,
+        },
+      }));
+      setSelectedAnswer(null);
       setIsAnswered(false);
     } else {
-      // Go to results page
-      submitPractice();
+      // Complete the practice session
+      setConfig((prev) => ({
+        ...prev,
+        answers: {
+          ...prev.answers,
+          [currentQuestion.id]: selectedAnswer!,
+        },
+        isCompleted: true,
+        step: 4,
+      }));
     }
-  };
-
-  const submitPractice = () => {
-    // Calculate results
-    let correctAnswers = 0;
-    let incorrectAnswers = 0;
-    let skippedQuestions = 0;
-
-    // Count through the answered questions
-    for (let i = 0; i < totalQuestions; i++) {
-      const questionId = mockQuestions[i % mockQuestions.length].id;
-      const userAnswer = answers[questionId];
-      const correctAnswer = mockQuestions[i % mockQuestions.length].correctAnswer;
-      
-      if (!userAnswer) {
-        skippedQuestions++;
-      } else if (userAnswer === correctAnswer) {
-        correctAnswers++;
-      } else {
-        incorrectAnswers++;
-      }
-    }
-
-    // Move to result page
-    setConfig(prev => ({ 
-      ...prev, 
-      step: 4,
-      practiceResults: {
-        totalQuestions,
-        correctAnswers,
-        incorrectAnswers,
-        skippedQuestions,
-        timeTaken: timeSpent,
-        answers,
-      }
-    }));
   };
 
   const goBack = () => {
     Alert.alert(
-      'সেশন বাতিল করুন?',
-      'আপনি কি নিশ্চিত আপনি সেশন বাতিল করতে চান?',
+      "সেশন বাতিল করুন?",
+      "আপনি কি নিশ্চিত আপনি সেশন বাতিল করতে চান?",
       [
         {
-          text: 'না',
-          style: 'cancel'
+          text: "না",
+          style: "cancel",
         },
         {
-          text: 'হ্যাঁ',
-          onPress: () => setConfig(prev => ({
-            ...prev,
-            step: 2,
-            selectedSections: {},
-          }))
-        }
+          text: "হ্যাঁ",
+          onPress: () =>
+            setConfig((prev) => ({
+              ...prev,
+              step: 2,
+              selectedSections: {},
+            })),
+        },
       ]
     );
   };
@@ -114,7 +126,9 @@ export function PracticeSession() {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
   };
 
   return (
@@ -123,22 +137,24 @@ export function PracticeSession() {
         <TouchableOpacity onPress={goBack} style={styles.closeButton}>
           <Ionicons name="close" size={24} color="#4B5563" />
         </TouchableOpacity>
-        
+
         <View style={styles.progressContainer}>
-          <ProgressBar 
-            value={currentQuestionIndex + 1}
+          <ProgressBar
+            value={config.currentQuestionIndex + 1}
             max={totalQuestions}
             size="md"
           />
         </View>
-        
+
         <View style={styles.timeContainer}>
-          <ThemedText style={styles.timeText}>{formatTime(timeSpent)}</ThemedText>
+          <ThemedText style={styles.timeText}>
+            {formatTime(timeSpent)}
+          </ThemedText>
         </View>
       </View>
 
       <LinearGradient
-        colors={['#8B5CF6', '#6366F1']}
+        colors={["#8B5CF6", "#6366F1"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.premiumBanner}
@@ -152,28 +168,59 @@ export function PracticeSession() {
         <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
       </LinearGradient>
 
-      <View style={styles.questionContainer}>
-        <QuestionDisplay
-          key={currentQuestionIndex}
-          questionNumber={currentQuestionIndex + 1}
-          questionText={currentQuestion.text}
-          options={currentQuestion.options.map((opt, index) => ({ 
-            id: opt, 
-            text: opt,
-            key: `option-${index}`
-          }))}
-          userAnswer={selectedAnswer}
-          onSelectOption={handleAnswerSelect}
-        />
-      </View>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ThemedText>Loading questions...</ThemedText>
+        </View>
+      ) : currentQuestion ? (
+        <View style={styles.questionContainer}>
+          <QuestionDisplay
+            key={config.currentQuestionIndex}
+            questionNumber={config.currentQuestionIndex + 1}
+            questionText={currentQuestion.text}
+            options={currentQuestion.options.map((opt) => ({
+              id: opt.id.toString(),
+              text: opt.text,
+              key: `option-${opt.id}`,
+            }))}
+            userAnswer={selectedAnswer?.toString()}
+            correctAnswer={currentQuestion.correct_option_id.toString()}
+            showAnswer={isAnswered}
+            onSelectOption={handleAnswerSelect}
+          />
+
+          {isAnswered && selectedAnswer !== null && (
+            <View style={styles.feedbackContainer}>
+              {selectedAnswer === currentQuestion.correct_option_id ? (
+                <View style={styles.correctFeedback}>
+                  <Ionicons name="checkmark-circle" size={24} color="#22C55E" />
+                  <ThemedText style={styles.correctText}>
+                    সঠিক উত্তর!
+                  </ThemedText>
+                </View>
+              ) : (
+                <View style={styles.incorrectFeedback}>
+                  <Ionicons name="close-circle" size={24} color="#EF4444" />
+                  <ThemedText style={styles.incorrectText}>
+                    ভুল উত্তর!
+                  </ThemedText>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+      ) : (
+        <View style={styles.loadingContainer}>
+          <ThemedText>No questions available</ThemedText>
+        </View>
+      )}
 
       {isAnswered && (
         <View style={styles.buttonContainer}>
-          <Button 
-            onPress={handleNext} 
-            style={styles.nextButton}
-          >
-            {currentQuestionIndex < totalQuestions - 1 ? 'পরবর্তী' : 'ফলাফল দেখুন'}
+          <Button onPress={handleNext} style={styles.nextButton}>
+            {config.currentQuestionIndex < totalQuestions - 1
+              ? "পরবর্তী"
+              : "ফলাফল দেখুন"}
           </Button>
         </View>
       )}
@@ -187,8 +234,8 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 16,
     gap: 12,
   },
@@ -199,43 +246,86 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   timeContainer: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
   },
   timeText: {
     fontSize: 14,
-    color: '#4B5563',
-    fontWeight: '600',
+    color: "#4B5563",
+    fontWeight: "600",
   },
   premiumBanner: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 12,
     borderRadius: 12,
     marginBottom: 16,
   },
   premiumContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   premiumText: {
-    color: '#FFFFFF',
-    fontWeight: '500',
+    color: "#FFFFFF",
+    fontWeight: "500",
   },
   questionContainer: {
     flex: 1,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   buttonContainer: {
     marginTop: 16,
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   nextButton: {
-    backgroundColor: '#9333EA',
+    backgroundColor: "#9333EA",
     paddingHorizontal: 24,
     minWidth: 120,
+  },
+  feedbackContainer: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  correctFeedback: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#DCFCE7",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#22C55E",
+  },
+  incorrectFeedback: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FEE2E2",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#EF4444",
+  },
+  correctText: {
+    color: "#15803D",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  incorrectText: {
+    color: "#DC2626",
+    fontWeight: "600",
+    fontSize: 16,
   },
 }); 

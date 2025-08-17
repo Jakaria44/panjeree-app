@@ -22,16 +22,16 @@ export function Step1SelectSubjectAndPaper() {
   const renderSubject = ({ item }: { item: Subject }) => {
     // Handle ReactNode icon or string icon
     const iconSource =
-      typeof item.icon === 'string' && item.icon
+      typeof item.icon === "string" && item.icon
         ? { uri: item.icon }
-        : require('@/assets/images/icon.png');
+        : require("@/assets/images/icon.png");
 
     return (
       <View style={styles.subjectItem}>
         <FeatureCard
           title={item.name}
           icon={<Image source={iconSource} style={styles.subjectIcon} />}
-          style={config.subject?.id === item.id ? styles.selectedCard : {}}
+          style={config.subject?.name === item.name ? styles.selectedCard : {}}
           onPress={() => handleSubjectSelect(item)}
           activeOpacity={0.7}
         />
@@ -43,10 +43,10 @@ export function Step1SelectSubjectAndPaper() {
     return (
       <View style={styles.paperItem}>
         <FeatureCard
-          title={`${config.subject?.name || ''} ${item.name}`}
+          title={`${config.subject?.name || ""} ${item.name}`}
           icon={
             <Image
-              source={require('@/assets/images/icon.png')}
+              source={require("@/assets/images/icon.png")}
               style={styles.paperIcon}
             />
           }
@@ -71,7 +71,7 @@ export function Step1SelectSubjectAndPaper() {
           <FlatList
             data={subjects}
             renderItem={renderSubject}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => item.name}
             numColumns={2}
             contentContainerStyle={styles.subjectGrid}
             scrollEnabled={false}

@@ -2,96 +2,133 @@ import Button from '@/components/Button';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { examConfigAtom } from '@/store/exam';
-import { mockQuestions } from '@/utils/mockData';
-import { useAtom } from 'jotai';
-import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { TimerProgress } from './TimerProgress';
+import { questionService } from "@/utils/api";
+import { useAtom } from "jotai";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { TimerProgress } from "./TimerProgress";
 
 export function MockExam() {
   const [config, setConfig] = useAtom(examConfigAtom);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [timeLeft, setTimeLeft] = useState(config.totalTime * 60); // Convert to seconds
   const [isExamComplete, setIsExamComplete] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingQuestions, setSubmittingQuestions] = useState<Set<string>>(
+    new Set()
+  );
 
-  const currentQuestion = mockQuestions[currentQuestionIndex];
+  const questions = config.questions || [];
+  const totalTimeInSeconds = config.totalTime * 60;
 
-  useEffect(() => {
-    if (timeLeft <= 0 && !isExamComplete) {
-      handleExamComplete();
+  const handleAnswerChange = async (questionId: string, answer: string) => {
+    if (!config.examId) {
+      return;
     }
-  }, [timeLeft, isExamComplete]);
+
+    // Update local state immediately for UI responsiveness
+    setAnswers((prev) => ({ ...prev, [questionId]: answer }));
+
+    // Mark this question as submitting
+    setSubmittingQuestions((prev) => new Set(prev).add(questionId));
+
+    try {
+      await questionService.submitAnswer({
+        exam_id: config.examId,
+        mcq_id: parseInt(questionId),
+        option_id: parseInt(answer),
+      });
+
+      // Success - answer submitted to server
+      console.log(
+        `Answer submitted for question ${questionId}: option ${answer}`
+      );
+    } catch (error) {
+      console.error("Error submitting answer:", error);
+
+      // Revert the local answer on error
+      setAnswers((prev) => {
+        const newAnswers = { ...prev };
+        delete newAnswers[questionId];
+        return newAnswers;
+      });
+    } finally {
+      // Remove from submitting set
+      setSubmittingQuestions((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(questionId);
+        return newSet;
+      });
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          handleSubmit();
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     return () => clearInterval(timer);
   }, []);
 
-  const handleAnswerSelect = (answer: string) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [currentQuestion.id]: answer,
-    }));
-  };
-
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < mockQuestions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-    } else {
-      handleExamComplete();
-    }
-  };
-
-  const handlePreviousQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
-    }
-  };
-
-  const handleExamComplete = () => {
+  const handleSubmit = useCallback(async () => {
     setIsExamComplete(true);
+    setIsSubmitting(true);
 
-    // Calculate results
-    const totalQuestions = mockQuestions.length;
-    const correctAnswers = mockQuestions.reduce((count, question) => {
-      return count + (answers[question.id] === question.correctAnswer ? 1 : 0);
-    }, 0);
-    const incorrectAnswers = totalQuestions - correctAnswers;
-    const timeTaken = config.totalTime * 60 - timeLeft;
+    try {
+      // Calculate results
+      const totalQuestions = questions.length;
+      const correctAnswers = questions.reduce((count, question) => {
+        const selectedAnswer = answers[question.id.toString()];
+        return (
+          count +
+          (selectedAnswer &&
+          parseInt(selectedAnswer) === question.correct_option_id
+            ? 1
+            : 0)
+        );
+      }, 0);
+      const answeredQuestions = Object.keys(answers).length;
+      const incorrectAnswers = answeredQuestions - correctAnswers;
+      const unanswered = totalQuestions - answeredQuestions;
+      const timeTaken = totalTimeInSeconds - timeLeft;
 
-    const examResults = {
-      totalQuestions,
-      correctAnswers,
-      incorrectAnswers,
-      unanswered: 0,
-      timeTaken,
-      answers,
-    };
+      const examResults = {
+        totalQuestions,
+        correctAnswers,
+        incorrectAnswers,
+        unanswered,
+        timeTaken,
+        answers,
+      };
 
-    setConfig((prev) => ({
-      ...prev,
-      examResults,
-      step: 5,
-    }));
-  };
+      setConfig((prev) => ({
+        ...prev,
+        examResults,
+        step: 7, // Move to results page
+      }));
+    } catch (error) {
+      console.error("Error completing exam:", error);
+      Alert.alert("Error", "Failed to complete exam. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [questions, answers, totalTimeInSeconds, timeLeft, setConfig]);
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-
-  if (!currentQuestion) {
+  if (questions.length === 0) {
     return (
       <ThemedView style={styles.container}>
         <ThemedText style={styles.errorText}>No questions available</ThemedText>
@@ -107,70 +144,104 @@ export function MockExam() {
         </ThemedText>
         <View style={styles.progressContainer}>
           <ThemedText style={styles.progressText}>
-            প্রশ্ন {currentQuestionIndex + 1} / {mockQuestions.length}
+            মোট প্রশ্ন: {questions.length} | উত্তর দেওয়া:{" "}
+            {Object.keys(answers).length}
           </ThemedText>
           <TimerProgress
-            timeLeft={timeLeft}
-            totalTime={config.totalTime * 60}
+            totalSeconds={totalTimeInSeconds}
+            isPaused={isExamComplete}
           />
         </View>
       </View>
 
       <ScrollView
-        style={styles.questionContainer}
+        style={styles.questionsContainer}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContentContainer}
       >
-        <View style={styles.questionCard}>
-          <ThemedText style={styles.questionText}>
-            {currentQuestion.text}
-          </ThemedText>
+        {questions.map((question, questionIndex) => {
+          const questionId = question.id.toString();
+          const selectedAnswer = answers[questionId];
+          const isSubmitting = submittingQuestions.has(questionId);
 
-          <View style={styles.optionsContainer}>
-            {currentQuestion.options.map((option, index) => {
-              const isSelected = answers[currentQuestion.id] === option;
-              return (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.optionButton,
-                    isSelected && styles.selectedOption,
-                  ]}
-                  onPress={() => handleAnswerSelect(option)}
-                  activeOpacity={0.7}
-                >
-                  <ThemedText
-                    style={[
-                      styles.optionText,
-                      isSelected && styles.selectedOptionText,
-                    ]}
-                  >
-                    {String.fromCharCode(65 + index)}. {option}
+          return (
+            <View key={question.id} style={styles.questionCard}>
+              <View style={styles.questionHeader}>
+                <ThemedText style={styles.questionNumber}>
+                  প্রশ্ন {questionIndex + 1}
+                </ThemedText>
+                {isSubmitting && (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" />
+                    <ThemedText style={styles.loadingText}>
+                      জমা দেওয়া হচ্ছে...
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+
+              <ThemedText style={styles.questionText}>
+                {question.text}
+              </ThemedText>
+
+              {question.image_url && (
+                <View style={styles.imageContainer}>
+                  <ThemedText style={styles.imageText}>
+                    [Image will be displayed here]
                   </ThemedText>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+                </View>
+              )}
+
+              <View style={styles.optionsContainer}>
+                {question.options.map((option, optionIndex) => {
+                  const isSelected = selectedAnswer === option.id.toString();
+
+                  return (
+                    <TouchableOpacity
+                      key={option.id}
+                      style={[
+                        styles.optionButton,
+                        isSelected && styles.selectedOption,
+                        isSubmitting && styles.disabledOption,
+                      ]}
+                      onPress={() =>
+                        !isSubmitting &&
+                        handleAnswerChange(questionId, option.id.toString())
+                      }
+                      activeOpacity={0.7}
+                      disabled={isSubmitting}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.optionText,
+                          isSelected && styles.selectedOptionText,
+                          isSubmitting && styles.disabledOptionText,
+                        ]}
+                      >
+                        {String.fromCharCode(65 + optionIndex)}. {option.text}
+                      </ThemedText>
+                      {option.image_url && (
+                        <ThemedText style={styles.optionImageText}>
+                          [Option Image]
+                        </ThemedText>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          );
+        })}
       </ScrollView>
 
       <View style={styles.footer}>
-        <View style={styles.navigationButtons}>
-          <Button
-            title='পূর্ববর্তী'
-            onPress={handlePreviousQuestion}
-            disabled={currentQuestionIndex === 0}
-            style={styles.navButton}
-          />
-          <Button
-            title={
-              currentQuestionIndex === mockQuestions.length - 1
-                ? 'সমাপ্ত'
-                : 'পরবর্তী'
-            }
-            onPress={handleNextQuestion}
-            style={styles.navButton}
-          />
-        </View>
+        <Button
+          onPress={handleSubmit}
+          style={styles.submitButton}
+          isLoading={isSubmitting}
+        >
+          পরীক্ষা সমাপ্ত করুন
+        </Button>
       </View>
     </ThemedView>
   );
@@ -179,42 +250,83 @@ export function MockExam() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    backgroundColor: "#f5f5f5",
   },
   header: {
-    marginBottom: 24,
+    backgroundColor: "#9333EA",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingTop: 50,
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
+    fontWeight: "bold",
+    color: "white",
+    textAlign: "center",
+    marginBottom: 12,
   },
   progressContainer: {
-    marginBottom: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   progressText: {
     fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 8,
+    color: "#ffffff",
   },
-  questionContainer: {
+  questionsContainer: {
     flex: 1,
   },
+  scrollContentContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    gap: 20,
+  },
   questionCard: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 12,
     padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
+  questionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  questionNumber: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#9333EA",
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
   questionText: {
     fontSize: 16,
     lineHeight: 24,
     marginBottom: 20,
+  },
+  imageContainer: {
+    marginBottom: 16,
+    padding: 16,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  imageText: {
+    color: "#6B7280",
+    fontStyle: "italic",
   },
   optionsContainer: {
     gap: 12,
@@ -222,36 +334,47 @@ const styles = StyleSheet.create({
   optionButton: {
     padding: 16,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
     borderRadius: 8,
-    backgroundColor: 'white',
+    backgroundColor: "white",
   },
   selectedOption: {
-    borderColor: '#9333EA',
-    backgroundColor: '#FAF5FF',
+    borderColor: "#9333EA",
+    backgroundColor: "#FAF5FF",
+  },
+  disabledOption: {
+    opacity: 0.6,
   },
   optionText: {
     fontSize: 14,
     lineHeight: 20,
   },
   selectedOptionText: {
-    color: '#9333EA',
-    fontWeight: '500',
+    color: "#9333EA",
+    fontWeight: "500",
+  },
+  disabledOptionText: {
+    color: "#9CA3AF",
+  },
+  optionImageText: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontStyle: "italic",
+    marginTop: 4,
   },
   footer: {
-    marginTop: 16,
+    backgroundColor: "white",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
   },
-  navigationButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  navButton: {
-    flex: 1,
-    backgroundColor: '#9333EA',
+  submitButton: {
+    backgroundColor: "#9333EA",
   },
   errorText: {
     fontSize: 16,
-    textAlign: 'center',
-    color: '#EF4444',
+    textAlign: "center",
+    color: "#EF4444",
   },
 });

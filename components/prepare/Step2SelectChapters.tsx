@@ -18,7 +18,7 @@ export function Step2SelectChapters() {
   const primaryColor = useThemeColor({}, 'primary');
 
   useEffect(() => {
-    if (config.subject?.id && config.paper?.id) {
+    if (config.subject && config.paper?.id) {
       // Find the paper in the subject's papers
       const selectedPaper = config.subject.papers.find(
         (p) => p.id === config.paper?.id
@@ -91,7 +91,7 @@ export function Step2SelectChapters() {
       config.selectedSections[chapter.id.toString()]?.length || 0;
     if (selectedCount === 0) return false;
     if (selectedCount === chapter.topics.length) return true;
-    return 'indeterminate';
+    return "indeterminate";
   };
 
   const goBack = () => {
@@ -118,11 +118,9 @@ export function Step2SelectChapters() {
           <ThemedText style={styles.emptyText}>
             এই পত্রটির জন্য এখনও কোন অধ্যায়/টপিক যোগ করা হয়নি।
           </ThemedText>
-          <Button
-            title='পূর্বের ধাপে ফিরে যান'
-            onPress={goBack}
-            style={styles.backButton}
-          />
+          <Button onPress={goBack} style={styles.backButton}>
+            পূর্বের ধাপে ফিরে যান
+          </Button>
         </View>
       </ThemedView>
     );
@@ -158,7 +156,7 @@ export function Step2SelectChapters() {
           <View
             style={[styles.checkbox, isSelected && styles.selectedCheckbox]}
           >
-            {isSelected && <AntDesign name='check' size={12} color='white' />}
+            {isSelected && <AntDesign name="check" size={12} color="white" />}
           </View>
         </View>
       </TouchableOpacity>
@@ -178,7 +176,7 @@ export function Step2SelectChapters() {
         >
           <View style={styles.chapterContent}>
             <View style={styles.chapterInfo}>
-              <Feather name='book' size={16} color={primaryColor} />
+              <Feather name="book" size={16} color={primaryColor} />
               <ThemedText style={styles.chapterText}>{item.name}</ThemedText>
             </View>
             <View style={styles.chapterActions}>
@@ -195,7 +193,7 @@ export function Step2SelectChapters() {
                   ]}
                 >
                   {checkedState && (
-                    <AntDesign name='check' size={12} color='white' />
+                    <AntDesign name="check" size={12} color="white" />
                   )}
                 </View>
               </TouchableOpacity>
@@ -203,7 +201,7 @@ export function Step2SelectChapters() {
                 onPress={() => toggleChapter(item.id.toString())}
               >
                 <Ionicons
-                  name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                  name={isExpanded ? "chevron-up" : "chevron-down"}
                   size={16}
                   color={primaryColor}
                 />
@@ -248,13 +246,14 @@ export function Step2SelectChapters() {
 
       <View style={styles.buttonContainer}>
         <Button
-          title='শুরু কর'
           onPress={startPractice}
           disabled={!hasSelectedSections}
           style={
             !hasSelectedSections ? styles.disabledButton : styles.primaryButton
           }
-        />
+        >
+          শুরু কর
+        </Button>
       </View>
     </ThemedView>
   );

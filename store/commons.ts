@@ -3,11 +3,15 @@ import { atom } from 'jotai';
 export type Topic = {
   id: number;
   name: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Chapter = {
   id: number;
   name: string;
+  created_at: string;
+  updated_at: string;
   topics: Topic[];
 };
 
@@ -18,7 +22,6 @@ export type Paper = {
 };
 
 export type Subject = {
-  id: number;
   name: string;
   icon: string;
   papers: Paper[];

@@ -12,7 +12,7 @@ import {
   Image,
   StyleSheet,
   View,
-} from 'react-native';
+} from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StepIndicator } from './StepIndicator';
 
@@ -48,14 +48,14 @@ export function Step1SelectSubject() {
 
   const renderSubject = ({ item }: { item: Subject }) => {
     // Use default icon for all subjects since placeholder URLs don't work in React Native
-    const iconSource = require('@/assets/images/icon.png');
+    const iconSource = require("@/assets/images/icon.png");
 
     return (
       <View style={styles.subjectItem}>
         <FeatureCard
           title={item.name}
           icon={<Image source={iconSource} style={styles.subjectIcon} />}
-          style={config.subject?.id === item.id ? styles.selectedCard : {}}
+          style={config.subject?.name === item.name ? styles.selectedCard : {}}
           onPress={() => handleSubjectSelect(item)}
           activeOpacity={0.7}
         />
@@ -70,7 +70,7 @@ export function Step1SelectSubject() {
       >
         <StepIndicator onBack={handleBack} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size='large' color='#9333EA' />
+          <ActivityIndicator size="large" color="#9333EA" />
           <ThemedText style={styles.loadingText}>
             Loading subjects...
           </ThemedText>
@@ -105,7 +105,7 @@ export function Step1SelectSubject() {
       <FlatList
         data={subjects}
         renderItem={renderSubject}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => item.name}
         numColumns={2}
         contentContainerStyle={styles.subjectGrid}
         ListEmptyComponent={

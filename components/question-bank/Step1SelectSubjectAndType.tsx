@@ -3,10 +3,11 @@ import { ThemedView } from '@/components/ThemedView';
 import { FeatureCard } from '@/components/shared/FeatureCard';
 import { useSubjects } from '@/hooks/useSubjects';
 import { Subject } from '@/store/commons';
-import {
-  questionBankConfigAtom,
-  questionBankTypes,
-} from '@/store/question-bank';
+import
+  {
+    questionBankConfigAtom,
+    questionBankTypes,
+  } from "@/store/question-bank";
 import { useAtom } from 'jotai';
 import { FlatList, Image, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -25,16 +26,16 @@ export function Step1SelectSubjectAndType() {
   const renderSubject = ({ item }: { item: Subject }) => {
     // Handle ReactNode icon or string icon
     const iconSource =
-      typeof item.icon === 'string' && item.icon
+      typeof item.icon === "string" && item.icon
         ? { uri: item.icon }
-        : require('@/assets/images/icon.png');
+        : require("@/assets/images/icon.png");
 
     return (
       <View style={styles.subjectItem}>
         <FeatureCard
           title={item.name}
           icon={<Image source={iconSource} style={styles.subjectIcon} />}
-          style={config.subject?.id === item.id ? styles.selectedCard : {}}
+          style={config.subject?.name === item.name ? styles.selectedCard : {}}
           onPress={() => handleSubjectSelect(item)}
           activeOpacity={0.7}
         />
@@ -49,11 +50,11 @@ export function Step1SelectSubjectAndType() {
           title={item.name}
           icon={
             <Image
-              source={require('@/assets/images/icon.png')}
+              source={require("@/assets/images/icon.png")}
               style={styles.typeIcon}
             />
           }
-          onPress={() => handleTypeSelect(item.id as 'board' | 'school')}
+          onPress={() => handleTypeSelect(item.id as "board" | "school")}
           activeOpacity={0.7}
         />
       </View>
@@ -70,7 +71,7 @@ export function Step1SelectSubjectAndType() {
           <FlatList
             data={subjects}
             renderItem={renderSubject}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => item.name}
             numColumns={2}
             contentContainerStyle={styles.subjectGrid}
             scrollEnabled={false}
